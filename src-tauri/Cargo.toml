@@ -1,0 +1,46 @@
+[package]
+name = "boxit"
+description = "BoxIt - desktop archiver"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+default-run = "boxit"
+
+[lib]
+name = "boxit_lib"
+crate-type = ["rlib"]
+
+[features]
+default = ["rar"]
+# Reading RAR with the UnRAR library: see the same feature of boxit-codecs.
+rar = ["boxit-cli/rar", "boxit-engine/rar"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+boxit-cli.workspace = true
+boxit-core.workspace = true
+boxit-engine.workspace = true
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-drag = "2"
+# The only network client of BoxIt: used when the user asks for a check.
+tauri-plugin-updater = "2"
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# Passwords live in the Windows Credential Manager, not in the data folder.
+keyring = { version = "3", default-features = false, features = ["windows-native"] }
+# Attaching to the console of the terminal a command was typed in.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Console"] }
+
+[lints]
+workspace = true

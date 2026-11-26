@@ -1,0 +1,33 @@
+[package]
+name = "boxit-cli"
+description = "BoxIt command line: list, extract, create and test archives"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rar"]
+# Reading RAR with the UnRAR library: see the same feature of boxit-codecs.
+rar = ["boxit-codecs/rar", "boxit-engine/rar"]
+
+[dependencies]
+boxit-codecs.workspace = true
+boxit-core.workspace = true
+boxit-engine.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tempfile.workspace = true
+clap = { version = "4.6", features = ["derive", "env"] }
+# Only the clock: the local time zone, for the times of a listing.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# Ctrl+C stops an operation at a checkpoint, so it cleans up after itself.
+ctrlc = "3"
+# A password typed in the terminal is not shown.
+rpassword = "7"
+
+[lints]
+workspace = true

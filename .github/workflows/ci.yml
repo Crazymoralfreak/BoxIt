@@ -1,0 +1,196 @@
+name: CI
+
+# Checks of every push and pull request: formatting, lints, tests on three
+# systems, the dictionaries and the rules for dependencies. Nothing is
+# released from here; releases are built by release.yml from a tag.
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+
+# A push to a branch with an open pull request starts two runs of the same
+# commit; the later one replaces the earlier.
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  web:
+    name: Interface
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Dictionaries
+        run: npm run i18n:check
+
+      - name: One version in every file
+        run: npm run version:check
+
+  rust:
+    name: Rust (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+
+      - uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Formatting
+        run: cargo fmt --all --check
+
+      # The application embeds the built interface, so it comes first.
+      - name: Build the interface
+        run: |
+          npm ci
+          npm run build
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      # The runner has 7-Zip and the tar of libarchive, and runs as an
+      # administrator, which DISM asks for: the tests that exchange archives
+      # with them must find them, not pass without them.
+      - name: Tests
+        env:
+          BOXIT_INTEROP: 7-zip,tar,bsdtar,dism
+        run: cargo test --workspace --locked
+
+      - name: Cache statistics
+        if: always()
+        run: sccache --show-stats
+
+  # The archive crates and the command line are the same on every system:
+  # everything except the window is tested on Linux and macOS as well.
+  core:
+    name: Core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The programs the tests exchange archives with: see
+          # crates/boxit-engine/tests/interop.rs.
+          - os: ubuntu-latest
+            interop: tar,bsdtar,wimlib
+          # The tar of macOS is the one of libarchive.
+          - os: macos-latest
+            interop: tar,bsdtar
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy
+          rustup default stable
+
+      - uses: mozilla-actions/sccache-action@v0.0.11
+
+      # The tar of libarchive writes cpio, ar and disc images; wimlib writes
+      # the images of Windows with every compression they have.
+      - name: Install the programs the tests exchange archives with
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libarchive-tools wimtools
+
+      - name: Clippy
+        run: cargo clippy --workspace --exclude boxit --all-targets --locked -- -D warnings
+
+      - name: Tests
+        env:
+          BOXIT_INTEROP: ${{ matrix.interop }}
+        run: cargo test --workspace --exclude boxit --locked
+
+      # RAR is read by code under a licence of its own, behind a feature: a
+      # build without the feature must stand on its own.
+      - name: Tests of the readers without UnRAR
+        if: runner.os == 'Linux'
+        run: |
+          cargo clippy -p boxit-codecs --no-default-features --all-targets --locked -- -D warnings
+          cargo test -p boxit-codecs --no-default-features --locked
+
+  network:
+    name: No network in the archive crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Dependencies of the crates under crates/
+        run: node scripts/check-no-network.mjs
+
+  deny:
+    name: Dependencies (${{ matrix.checks }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+    # A new advisory about a dependency is a reason to look, not a reason to
+    # block unrelated work.
+    continue-on-error: ${{ matrix.checks == 'advisories' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check ${{ matrix.checks }}
+
+  audit:
+    name: Security advisories (cargo audit)
+    runs-on: ubuntu-latest
+    # Reported, not blocking, for the same reason as the advisories above.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Audit
+        run: cargo audit

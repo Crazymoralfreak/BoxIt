@@ -63,12 +63,11 @@ pub fn update(request: &UpdateRequest, options: OpenOptions, ctx: &OpContext) ->
     }
     let source = fsx::long(&request.archive)?;
     let destination = fsx::long(&request.destination)?;
-    let mut archive = Archive::open(&source, options.clone()).map_err(|error| {
-        match error.code.as_str() {
+    let mut archive =
+        Archive::open(&source, options.clone()).map_err(|error| match error.code.as_str() {
             "notFound" | "accessDenied" => error.with("path", fsx::display(&source)),
             _ => error,
-        }
-    })?;
+        })?;
     let format = archive.format();
     if !format.can_write() {
         return Err(Error::new("cannotModify").with("format", format.id()));
@@ -111,7 +110,15 @@ pub fn update(request: &UpdateRequest, options: OpenOptions, ctx: &OpContext) ->
         drop(partial);
         if error.code == "cannotModify" {
             drop(archive);
-            return repack(request, &source, &destination, &entries, format, options, ctx);
+            return repack(
+                request,
+                &source,
+                &destination,
+                &entries,
+                format,
+                options,
+                ctx,
+            );
         }
         return Err(error);
     }
@@ -194,7 +201,8 @@ fn repack(
         .parent()
         .unwrap_or(Path::new("."))
         .join(format!(".boxit-repack-{}", fsx::unique_suffix()));
-    fs::create_dir_all(&folder).map_err(|error| Error::from(error).with("path", fsx::display(&folder)))?;
+    fs::create_dir_all(&folder)
+        .map_err(|error| Error::from(error).with("path", fsx::display(&folder)))?;
     let cleanup = TempFolder(folder.clone());
     if !kept.is_empty() {
         let mut archive = Archive::open(source, options)?;
@@ -216,10 +224,12 @@ fn repack(
             let from = under(&folder, &entry.meta.path);
             let to = under(&folder, name);
             if let Some(parent) = to.parent() {
-                fs::create_dir_all(parent).map_err(|error| Error::from(error).with("path", fsx::display(parent)))?;
+                fs::create_dir_all(parent)
+                    .map_err(|error| Error::from(error).with("path", fsx::display(parent)))?;
             }
             if from != to && from.exists() {
-                fs::rename(&from, &to).map_err(|error| Error::from(error).with("path", fsx::display(&to)))?;
+                fs::rename(&from, &to)
+                    .map_err(|error| Error::from(error).with("path", fsx::display(&to)))?;
             }
         }
     }

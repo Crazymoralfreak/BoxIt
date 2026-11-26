@@ -22,8 +22,8 @@ use crate::fsx;
 use crate::jobs::{JobInfo, JobKind, JobState, Jobs, Ticket};
 use crate::repair::{self, RepairRequest};
 use crate::sessions::Session;
-use crate::update::{self, UpdateRequest};
 use crate::settings::ExtractPlace;
+use crate::update::{self, UpdateRequest};
 
 /// Passes the questions of an operation on, and notes the password it was
 /// given: one that opened the archive is not asked for again.
@@ -197,7 +197,8 @@ pub fn batch_extract(jobs: &Jobs, archives: Vec<PathBuf>, destination: PathBuf) 
             jobs.spawn(JobKind::Extract, &shown, Some(&target), move |ticket| {
                 let ctx = ticket.context(budget::system(0));
                 let mut archive = Archive::open(&path, ReadOptions::default())?;
-                let outcome = archive.extract(&folder, Selection::All, ExtractOptions::default(), &ctx)?;
+                let outcome =
+                    archive.extract(&folder, Selection::All, ExtractOptions::default(), &ctx)?;
                 let mut result = json!(outcome);
                 result["destination"] = Value::String(fsx::display(&folder));
                 Ok(result)

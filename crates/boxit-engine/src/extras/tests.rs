@@ -70,11 +70,17 @@ fn an_archive_is_converted_without_a_folder_of_files() {
         .map(|entry| entry.meta.path)
         .filter(|path| !path.ends_with('/'))
         .collect();
-    assert!(names.iter().any(|name| name.ends_with("note.txt")), "{names:?}");
+    assert!(
+        names.iter().any(|name| name.ends_with("note.txt")),
+        "{names:?}"
+    );
     // The conversion did not leave a folder of unpacked files beside the archive.
     assert!(fs::read_dir(root.path()).unwrap().all(|entry| {
         let path = entry.unwrap().path();
-        path.is_file() || path.file_name().is_some_and(|name| name.to_string_lossy().starts_with("src-"))
+        path.is_file()
+            || path
+                .file_name()
+                .is_some_and(|name| name.to_string_lossy().starts_with("src-"))
     }));
 }
 
@@ -85,7 +91,10 @@ fn two_archives_are_compared_by_name_size_and_crc() {
     let mut right = left.clone();
     right.retain(|entry| !entry.meta.path.ends_with("note.txt"));
     let compared = compare(&left, &right);
-    assert!(compared.only_left.iter().any(|path| path.ends_with("note.txt")));
+    assert!(compared
+        .only_left
+        .iter()
+        .any(|path| path.ends_with("note.txt")));
     assert_eq!(compared.only_right, Vec::<String>::new());
     assert_eq!(compared.different, Vec::<super::Different>::new());
     assert!(name_matches("Docs/Left.TXT", "*.txt"));
@@ -102,7 +111,10 @@ fn a_sample_estimates_the_whole_set() {
     let folder = root.path().join("docs");
     plant(
         &folder,
-        &[("a.txt", "alpha alpha alpha"), ("b.txt", "beta beta beta beta")],
+        &[
+            ("a.txt", "alpha alpha alpha"),
+            ("b.txt", "beta beta beta beta"),
+        ],
     );
     let estimate = estimate(
         &[folder],

@@ -139,8 +139,7 @@
     "destination": "New archive",
     "start": "Repair",
     "replaceAsk": "{path} already exists. Replace it with the repaired archive?",
-    "replace": "Replace",
-    "failed": "The repair could not be started"
+    "replace": "Replace"
   },
   "sfx": {
     "folder": "Extract into this folder",

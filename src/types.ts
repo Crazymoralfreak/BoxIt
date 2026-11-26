@@ -1,7 +1,7 @@
 // Shapes of what the Rust commands take and return; the names mirror the
 // structures of `boxit-core`, `boxit-engine` and `src-tauri`.
 
-export const LANGUAGES = ["ru", "en"] as const;
+export const LANGUAGES = ["en", "ru", "de", "es", "fr", "pt", "pl", "tr", "zh", "ja", "ko"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
 export const THEMES = ["system", "light", "dark"] as const;

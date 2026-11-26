@@ -89,10 +89,7 @@ fn a_file_is_left_out_and_another_is_renamed_without_repacking_the_rest() {
     .unwrap();
     assert!(!updated.repacked);
     assert!(updated.packed > 0);
-    assert_eq!(
-        names(&archive),
-        ["set/docs/left.txt", "set/docs/moved.txt"]
-    );
+    assert_eq!(names(&archive), ["set/docs/left.txt", "set/docs/moved.txt"]);
     // The file that was there is the new archive, not a second copy.
     assert!(fs::metadata(&archive).unwrap().len() < before + 64);
     let out = root.path().join("out");
@@ -158,10 +155,7 @@ fn a_compressed_tar_is_packed_again() {
     )
     .unwrap();
     assert!(updated.repacked);
-    assert_eq!(
-        names(&archive),
-        ["set/docs/left.txt", "set/docs/right.txt"]
-    );
+    assert_eq!(names(&archive), ["set/docs/left.txt", "set/docs/right.txt"]);
 }
 
 #[test]

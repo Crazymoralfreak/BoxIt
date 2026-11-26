@@ -121,9 +121,20 @@ fn program() -> Option<PathBuf> {
     }
 }
 
-fn russian() -> bool {
-    let language = unsafe { GetUserDefaultUILanguage() };
-    language & 0x3ff == 0x19
+fn ui_language() -> &'static str {
+    match unsafe { GetUserDefaultUILanguage() } & 0x3ff {
+        0x07 => "de",
+        0x0a => "es",
+        0x0c => "fr",
+        0x11 => "ja",
+        0x12 => "ko",
+        0x15 => "pl",
+        0x16 => "pt",
+        0x19 => "ru",
+        0x1f => "tr",
+        0x04 => "zh",
+        _ => "en",
+    }
 }
 
 fn launch(action: Action, files: &[PathBuf]) -> windows::core::Result<()> {
@@ -242,7 +253,7 @@ struct Child {
 
 impl IExplorerCommand_Impl for Child_Impl {
     fn GetTitle(&self, _: windows::core::Ref<'_, IShellItemArray>) -> windows::core::Result<PWSTR> {
-        caught(|| task_string(self.action.title(russian())))
+        caught(|| task_string(&self.action.title(ui_language())))
     }
 
     fn GetIcon(

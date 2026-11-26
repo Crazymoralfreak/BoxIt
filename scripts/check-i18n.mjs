@@ -11,7 +11,7 @@ import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const LANGUAGES = ["ru", "en"];
+const LANGUAGES = ["ru", "en", "de", "es", "fr", "pt", "pl", "tr", "zh", "ja", "ko"];
 
 function walk(folder, extensions, out = []) {
   for (const name of readdirSync(folder)) {
@@ -65,7 +65,7 @@ for (const file of walk(join(root, "src"), [".ts", ".tsx"])) {
     }
     passed.get(match[1]).add(names);
   }
-  for (const match of source.matchAll(/\b(?:td|translate)\(\s*(?:\w+,\s*)?`([A-Za-z][\w.]*\.)\$\{/g)) {
+  for (const match of source.matchAll(/\bt[d]?\(\s*`([A-Za-z][\w.]*\.)\$\{/g)) {
     prefixes.add(match[1]);
   }
   // Option lists built from a prefix: labelled("settings.themeKind", [...]).
@@ -77,7 +77,7 @@ for (const file of walk(join(root, "src"), [".ts", ".tsx"])) {
 for (const folder of [join(root, "src-tauri", "src"), join(root, "crates")]) {
   for (const file of walk(folder, [".rs"])) {
     const source = readFileSync(file, "utf8");
-    for (const match of source.matchAll(/"((?:native|cli)\.[\w.]+|errors\.unknown)"/g)) {
+    for (const match of source.matchAll(/"((?:native|cli|shell|sfx)\.[\w.]+|errors\.unknown)"/g)) {
       exact.add(match[1]);
     }
     for (const match of source.matchAll(/"((?:native|cli)\.[\w.]+\.)\{/g)) {

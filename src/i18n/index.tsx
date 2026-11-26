@@ -4,8 +4,17 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { AppError, Language } from "../types";
+import de from "./de.json";
 import en from "./en.json";
+import es from "./es.json";
+import fr from "./fr.json";
+import ja from "./ja.json";
+import ko from "./ko.json";
+import pl from "./pl.json";
+import pt from "./pt.json";
 import ru from "./ru.json";
+import tr from "./tr.json";
+import zh from "./zh.json";
 
 type Dictionary = typeof ru;
 
@@ -17,10 +26,22 @@ type LeafKeys<T, Prefix extends string = ""> = T extends string
 export type TKey = LeafKeys<Dictionary>;
 export type TParams = Record<string, string | number>;
 
-const dictionaries: Record<Language, Dictionary> = { ru, en };
+const dictionaries: Record<Language, Dictionary> = { ru, en, de, es, fr, pt, pl, tr, zh, ja, ko };
 
 /** Names of the languages, each in its own language. */
-export const LANGUAGE_NAMES: Record<Language, string> = { ru: "Русский", en: "English" };
+export const LANGUAGE_NAMES: Record<Language, string> = {
+  en: "English",
+  ru: "Русский",
+  de: "Deutsch",
+  es: "Español",
+  fr: "Français",
+  pt: "Português",
+  pl: "Polski",
+  tr: "Türkçe",
+  zh: "中文",
+  ja: "日本語",
+  ko: "한국어",
+};
 
 function lookup(dictionary: Dictionary, key: string): string | undefined {
   let node: unknown = dictionary;

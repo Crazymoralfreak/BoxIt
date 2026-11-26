@@ -34,11 +34,7 @@ pub struct ConvertRequest {
 pub use crate::create::Created;
 
 /// Copies an archive into another format. The source is not changed.
-pub fn convert(
-    request: &ConvertRequest,
-    open: OpenOptions,
-    ctx: &OpContext,
-) -> Result<Created> {
+pub fn convert(request: &ConvertRequest, open: OpenOptions, ctx: &OpContext) -> Result<Created> {
     if !request.options.format.can_write() {
         return Err(Error::new("cannotCreate").with("format", request.options.format.id()));
     }
@@ -168,7 +164,9 @@ impl EntrySink for Pump {
             return Ok(());
         }
         let mut writer = self.writer.lock().unwrap_or_else(PoisonError::into_inner);
-        io::copy(data, &mut *writer).map(|_| ()).map_err(Error::from)
+        io::copy(data, &mut *writer)
+            .map(|_| ())
+            .map_err(Error::from)
     }
 }
 
@@ -327,9 +325,14 @@ pub fn estimate(sources: &[PathBuf], options: &CreateOptions, ctx: &OpContext) -
     writer.add_all(sample, ctx)?;
     writer.finish()?;
     let sample_packed = output.get_ref().get_ref().len() as u64;
-    let packed = (u128::from(total_bytes) * u128::from(sample_packed) / u128::from(sample_bytes)) as u64;
+    let packed =
+        (u128::from(total_bytes) * u128::from(sample_packed) / u128::from(sample_bytes)) as u64;
     // A small sample says less about the rest.
-    let slack = if sample_bytes * 5 >= total_bytes { 8 } else { 20 };
+    let slack = if sample_bytes * 5 >= total_bytes {
+        8
+    } else {
+        20
+    };
     let low = packed.saturating_mul(100 - slack) / 100;
     let high = packed.saturating_mul(100 + slack) / 100;
     Ok(Estimate {

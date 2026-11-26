@@ -25,8 +25,6 @@ impl Action {
         }
     }
 
-    /// The dictionary key, `shell.<name>`.
-    #[cfg(test)]
     const fn key(self) -> &'static str {
         match self {
             Self::Open => "open",
@@ -37,19 +35,33 @@ impl Action {
         }
     }
 
-    pub fn title(self, russian: bool) -> &'static str {
-        match (russian, self) {
-            (true, Self::Open) => "Открыть в BoxIt",
-            (false, Self::Open) => "Open in BoxIt",
-            (true, Self::ExtractTo) => "Распаковать в папку",
-            (false, Self::ExtractTo) => "Extract to a folder",
-            (true, Self::ExtractHere) => "Распаковать здесь",
-            (false, Self::ExtractHere) => "Extract here",
-            (true, Self::Add) => "Добавить в архив",
-            (false, Self::Add) => "Add to an archive",
-            (true, Self::Email) => "Сжать и отправить",
-            (false, Self::Email) => "Compress and email",
-        }
+    /// The label from the same dictionary the window uses.
+    pub fn title(self, language: &str) -> String {
+        let value = serde_json::from_str::<serde_json::Value>(dictionary(language))
+            .ok()
+            .and_then(|dictionary| {
+                dictionary
+                    .get("shell")
+                    .and_then(|shell| shell.get(self.key()))
+                    .and_then(|text| text.as_str().map(str::to_owned))
+            });
+        value.unwrap_or_else(|| "BoxIt".to_owned())
+    }
+}
+
+fn dictionary(language: &str) -> &'static str {
+    match language {
+        "ru" => include_str!("../../../src/i18n/ru.json"),
+        "de" => include_str!("../../../src/i18n/de.json"),
+        "es" => include_str!("../../../src/i18n/es.json"),
+        "fr" => include_str!("../../../src/i18n/fr.json"),
+        "pt" => include_str!("../../../src/i18n/pt.json"),
+        "pl" => include_str!("../../../src/i18n/pl.json"),
+        "tr" => include_str!("../../../src/i18n/tr.json"),
+        "zh" => include_str!("../../../src/i18n/zh.json"),
+        "ja" => include_str!("../../../src/i18n/ja.json"),
+        "ko" => include_str!("../../../src/i18n/ko.json"),
+        _ => include_str!("../../../src/i18n/en.json"),
     }
 }
 
@@ -122,11 +134,11 @@ mod tests {
             Action::Email,
         ] {
             assert_eq!(
-                action.title(true),
+                action.title("ru"),
                 russian["shell"][action.key()].as_str().unwrap()
             );
             assert_eq!(
-                action.title(false),
+                action.title("en"),
                 english["shell"][action.key()].as_str().unwrap()
             );
         }

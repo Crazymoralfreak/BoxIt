@@ -9,9 +9,20 @@ use serde_json::Value;
 
 static RU: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/ru.json")));
 static EN: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/en.json")));
+static DE: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/de.json")));
+static ES: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/es.json")));
+static FR: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/fr.json")));
+static PT: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/pt.json")));
+static PL: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/pl.json")));
+static TR: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/tr.json")));
+static ZH: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/zh.json")));
+static JA: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/ja.json")));
+static KO: LazyLock<Value> = LazyLock::new(|| parse(include_str!("../../../src/i18n/ko.json")));
 
 /// Languages BoxIt has a dictionary for.
-pub const LANGUAGES: &[&str] = &["ru", "en"];
+pub const LANGUAGES: &[&str] = &[
+    "ru", "en", "de", "es", "fr", "pt", "pl", "tr", "zh", "ja", "ko",
+];
 
 /// The language of everything that has no dictionary.
 const FALLBACK: &str = "en";
@@ -23,6 +34,15 @@ fn parse(text: &str) -> Value {
 fn dictionary(lang: &str) -> &'static Value {
     match lang {
         "ru" => &RU,
+        "de" => &DE,
+        "es" => &ES,
+        "fr" => &FR,
+        "pt" => &PT,
+        "pl" => &PL,
+        "tr" => &TR,
+        "zh" => &ZH,
+        "ja" => &JA,
+        "ko" => &KO,
         _ => &EN,
     }
 }
@@ -286,7 +306,11 @@ mod tests {
         assert_eq!(language_of("ru_RU.UTF-8"), "ru");
         assert_eq!(language_of("RU"), "ru");
         assert_eq!(language_of("en-US"), "en");
-        assert_eq!(language_of("de-DE"), "en");
+        assert_eq!(language_of("de-DE"), "de");
+        assert_eq!(language_of("zh-Hans-CN"), "zh");
+        assert_eq!(language_of("ja_JP.UTF-8"), "ja");
+        assert_eq!(language_of("pt-BR"), "pt");
+        assert_eq!(language_of("xx"), "en");
         assert_eq!(language_of(""), "en");
         assert!(known_language(system_language()));
     }

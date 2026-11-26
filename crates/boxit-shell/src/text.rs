@@ -1,5 +1,9 @@
 //! Labels and the choice of commands. Kept free of COM so a test can check
 //! them without Explorer.
+//!
+//! Explorer is the only program that calls these outside the tests, so on
+//! other systems the library looks unused.
+#![cfg_attr(not(windows), allow(dead_code))]
 
 use std::path::Path;
 

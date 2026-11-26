@@ -812,7 +812,17 @@ mod tests {
         assert_eq!(info.result, Some(json!({ "files": 2 })));
         assert_eq!((info.speed, info.eta_seconds), (None, None));
         assert!(!jobs.is_busy());
-        let states: Vec<JobState> = receiver.try_iter().collect();
+        // The listener runs on the job thread. The last notice can arrive
+        // a moment after the job is already done.
+        let mut states = Vec::new();
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            states.extend(receiver.try_iter());
+            if states.last() == Some(&JobState::Done) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
         assert_eq!(states.first(), Some(&JobState::Queued));
         assert!(states.contains(&JobState::Running));
         assert_eq!(states.last(), Some(&JobState::Done));

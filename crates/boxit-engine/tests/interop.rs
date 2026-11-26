@@ -122,15 +122,20 @@ fn system_tar() -> Option<SystemTar> {
     Some(SystemTar { libarchive, zstd })
 }
 
-/// Runs a program in `folder` and fails the test with its output if it
-/// fails.
-fn run(program: &str, folder: &Path, arguments: &[&str]) {
-    let output = Command::new(program)
+/// Runs a program in `folder` and returns what it printed.
+fn invoke(program: &str, folder: &Path, arguments: &[&str]) -> std::process::Output {
+    Command::new(program)
         .current_dir(folder)
         .args(arguments)
         .stdin(Stdio::null())
         .output()
-        .unwrap();
+        .unwrap()
+}
+
+/// Runs a program in `folder` and fails the test with its output if it
+/// fails.
+fn run(program: &str, folder: &Path, arguments: &[&str]) {
+    let output = invoke(program, folder, arguments);
     assert!(
         output.status.success(),
         "{program} {arguments:?} failed ({}):\n{}\n{}",
@@ -138,6 +143,28 @@ fn run(program: &str, folder: &Path, arguments: &[&str]) {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+/// `tar.exe` of Windows aborts when a file name is outside the ANSI code
+/// page, and that page is not the same on every machine. The names stay in
+/// the tree for 7-Zip; only the calls to this `tar` lose them.
+fn drop_names_outside_ascii(folder: &Path) {
+    let entries: Vec<PathBuf> = fs::read_dir(folder)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    for path in entries {
+        let name = path.file_name().unwrap().to_string_lossy();
+        if !name.is_ascii() {
+            if path.is_dir() {
+                fs::remove_dir_all(&path).unwrap();
+            } else {
+                fs::remove_file(&path).unwrap();
+            }
+        } else if path.is_dir() {
+            drop_names_outside_ascii(&path);
+        }
+    }
 }
 
 /// A folder `project` under `root`: text in two alphabets, a megabyte that
@@ -528,8 +555,34 @@ fn the_tar_of_the_system_reads_what_boxit_writes() {
         // an archive means another machine.
         let unpacked = format!("{name}.out");
         fs::create_dir(archives.join(&unpacked)).unwrap();
-        run("tar", &archives, &["-xf", name, "-C", &unpacked]);
-        assert_same(&tree(&archives.join(&unpacked)), &wanted, name);
+        // The tar of Windows reads a header in the code page of the system
+        // unless it is told the names are UTF-8.
+        let mut arguments = Vec::new();
+        if tar.libarchive && name.contains(".tar") {
+            arguments.extend_from_slice(&["--options", "hdrcharset=UTF-8"]);
+        }
+        arguments.extend_from_slice(&["-xf", name, "-C", &unpacked]);
+        let output = invoke("tar", &archives, &arguments);
+        let got = tree(&archives.join(&unpacked));
+        if output.status.success() {
+            assert_same(&got, &wanted, name);
+        } else {
+            let err = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                cfg!(windows) && err.contains("unreadable filename"),
+                "tar {arguments:?} failed ({}):\n{}\n{err}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout)
+            );
+            // It skipped the names its code page cannot hold and unpacked
+            // the rest.
+            let readable: BTreeMap<_, _> = wanted
+                .iter()
+                .filter(|(name, _)| name.is_ascii())
+                .map(|(name, content)| (name.clone(), content.clone()))
+                .collect();
+            assert_same(&got, &readable, name);
+        }
     }
 }
 
@@ -540,6 +593,9 @@ fn boxit_reads_what_the_tar_of_the_system_writes() {
     };
     let root = scratch();
     plant(root.path());
+    if cfg!(windows) {
+        drop_names_outside_ascii(root.path());
+    }
     // The project alone is under the root yet.
     let wanted = tree(root.path());
     // The old headers have no word on the code page of their names, and
@@ -575,7 +631,7 @@ fn boxit_reads_what_the_tar_of_the_system_writes() {
         let mut arguments = switches;
         arguments.extend_from_slice(&["-cf", name, "project"]);
         run("tar", root.path(), &arguments);
-        boxit_reads(root.path(), name, false, &wanted);
+        boxit_reads_files(root.path(), name, false, &wanted);
     }
 }
 
@@ -661,6 +717,9 @@ fn boxit_reads_the_other_archives_libarchive_writes() {
     };
     let root = scratch();
     let project = plant(root.path());
+    if cfg!(windows) {
+        drop_names_outside_ascii(root.path());
+    }
     // The project alone is under the root yet.
     let wanted = tree(root.path());
     // The formats of cpio have no word on the code page of their names
@@ -681,7 +740,7 @@ fn boxit_reads_the_other_archives_libarchive_writes() {
         let mut arguments = switches;
         arguments.extend_from_slice(&["-cf", name, "project"]);
         run(tar, root.path(), &arguments);
-        boxit_reads(root.path(), name, false, &wanted);
+        boxit_reads_files(root.path(), name, false, &wanted);
     }
 
     // A library of object files holds files alone, without folders.

@@ -42,10 +42,10 @@ fn scratch() -> TempDir {
     {
         let short = Path::new(r"C:\b");
         fs::create_dir_all(short).unwrap();
-        return tempfile::Builder::new()
+        tempfile::Builder::new()
             .prefix("t")
             .tempdir_in(short)
-            .unwrap();
+            .unwrap()
     }
     #[cfg(not(windows))]
     TempDir::new().unwrap()

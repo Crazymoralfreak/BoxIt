@@ -14,8 +14,8 @@ use boxit_engine::create::{self, CreateRequest, Layout};
 use boxit_engine::extract::Outcome;
 use boxit_engine::passwords;
 use boxit_engine::repair::{self, RepairRequest};
-use boxit_engine::update::{self, UpdateRequest};
 use boxit_engine::text::{error_text, text};
+use boxit_engine::update::{self, UpdateRequest};
 use serde::Serialize;
 
 use crate::args::{

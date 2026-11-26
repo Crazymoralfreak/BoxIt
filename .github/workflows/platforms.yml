@@ -28,7 +28,7 @@ jobs:
             config: src-tauri/tauri.macos.conf.json
             icns: true
           - name: macOS Intel
-            os: macos-13
+            os: macos-15-intel
             bundles: dmg
             config: src-tauri/tauri.macos.conf.json
             icns: true

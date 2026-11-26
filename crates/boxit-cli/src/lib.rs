@@ -19,9 +19,9 @@
 #![forbid(unsafe_code)]
 
 mod args;
-mod extra;
 mod bench;
 mod commands;
+mod extra;
 mod interrupt;
 mod screen;
 mod show;

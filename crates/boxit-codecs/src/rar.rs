@@ -1818,10 +1818,20 @@ mod tests {
         assert_eq!(entry.packed_size, Some(21));
         assert_eq!(entry.method.as_deref(), Some("RAR 3"));
         assert_eq!(entry.meta.unix_mode, Some(0o644));
-        assert_eq!(
-            entry.meta.modified,
-            Some(Timestamp::from_seconds(1_438_957_268))
-        );
+        // RAR 4 stores the clock on the wall. UnRAR turns that into a moment
+        // with the time zone of this machine, so the check is the wall time.
+        let modified = entry.meta.modified.unwrap();
+        let wall = from_local(Civil {
+            year: 2015,
+            month: 8,
+            day: 7,
+            hour: 17,
+            minute: 21,
+            second: 8,
+        })
+        .unwrap();
+        assert_eq!(modified.seconds, wall.seconds);
+        assert_eq!(modified.nanos, 0);
         assert_eq!(entry.crc32, Some(crc32fast::hash(b"unrar-0.4.0")));
         assert_eq!(got[0].data, b"unrar-0.4.0");
 

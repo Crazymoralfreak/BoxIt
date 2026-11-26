@@ -22,15 +22,17 @@ use boxit_core::{EntryMeta, Result, Timestamp};
 
 /// `FILE_ATTRIBUTE_*` bits of Windows.
 pub const ATTRIBUTE_READONLY: u32 = 0x1;
-const ATTRIBUTE_HIDDEN: u32 = 0x2;
-const ATTRIBUTE_SYSTEM: u32 = 0x4;
-const ATTRIBUTE_ARCHIVE: u32 = 0x20;
-const ATTRIBUTE_NOT_INDEXED: u32 = 0x2000;
 /// Attributes of an archive entry that are given to the extracted file. The
 /// rest describe how a file is stored (compressed, sparse, reparse point)
 /// and are not for an archive to decide.
-const ATTRIBUTES_KEPT: u32 =
-    ATTRIBUTE_HIDDEN | ATTRIBUTE_SYSTEM | ATTRIBUTE_ARCHIVE | ATTRIBUTE_NOT_INDEXED;
+#[cfg(windows)]
+const ATTRIBUTES_KEPT: u32 = {
+    const HIDDEN: u32 = 0x2;
+    const SYSTEM: u32 = 0x4;
+    const ARCHIVE: u32 = 0x20;
+    const NOT_INDEXED: u32 = 0x2000;
+    HIDDEN | SYSTEM | ARCHIVE | NOT_INDEXED
+};
 
 #[cfg(windows)]
 const VERBATIM: &str = r"\\?\";

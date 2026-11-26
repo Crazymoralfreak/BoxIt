@@ -446,6 +446,17 @@ impl TarCreator<'_> {
         if let Some(fields) = header.as_ustar_mut() {
             if !set_path(fields, &path) || !path.is_ascii() {
                 extended.push(("path", path.as_bytes()));
+                // The name field is what a reader uses when it does not
+                // understand the extended header. Bytes that are not ASCII
+                // are not a name in the code page of Windows, and its tar
+                // then skips the entry as unreadable.
+                if !path.is_ascii() {
+                    let ascii: String = path
+                        .chars()
+                        .map(|character| if character.is_ascii() { character } else { '_' })
+                        .collect();
+                    let _ = set_path(fields, &ascii);
+                }
             }
             if let Some(target) = target {
                 let start = shortened(target, fields.linkname.len());

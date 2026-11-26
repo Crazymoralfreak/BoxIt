@@ -34,6 +34,23 @@ const PASSWORD: &str = "correct horse";
 /// The number of files [`plant`] makes.
 const FILES: u64 = 6;
 
+/// A temporary folder the system `tar` can archive. The usual temporary
+/// folder on a CI machine, plus the deep names [`plant`] adds, is longer
+/// than the paths that `tar` of Windows will open.
+fn scratch() -> TempDir {
+    #[cfg(windows)]
+    {
+        let short = Path::new(r"C:\b");
+        fs::create_dir_all(short).unwrap();
+        return tempfile::Builder::new()
+            .prefix("t")
+            .tempdir_in(short)
+            .unwrap();
+    }
+    #[cfg(not(windows))]
+    TempDir::new().unwrap()
+}
+
 /// Says that a program is missing: a failure where it is required.
 fn missing(program: &str) {
     let required = env::var("BOXIT_INTEROP").unwrap_or_default();
@@ -116,7 +133,8 @@ fn run(program: &str, folder: &Path, arguments: &[&str]) {
         .unwrap();
     assert!(
         output.status.success(),
-        "{program} {arguments:?} failed:\n{}\n{}",
+        "{program} {arguments:?} failed ({}):\n{}\n{}",
+        output.status,
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
@@ -223,7 +241,7 @@ fn seven_zip_reads_what_boxit_writes() {
     let Some(seven_zip) = seven_zip() else {
         return;
     };
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     let project = plant(root.path());
     // The project alone is under the root yet.
     let wanted = tree(root.path());
@@ -328,7 +346,7 @@ fn boxit_reads_what_seven_zip_writes() {
     let Some(seven_zip) = seven_zip() else {
         return;
     };
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     plant(root.path());
     // The project alone is under the root yet.
     let wanted = tree(root.path());
@@ -384,7 +402,7 @@ fn volumes_are_cut_the_way_seven_zip_cuts_them() {
     let Some(seven_zip) = seven_zip() else {
         return;
     };
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     let project = plant(root.path());
     // The project alone is under the root yet.
     let wanted = tree(root.path());
@@ -437,7 +455,7 @@ fn the_tar_of_the_system_reads_what_boxit_writes() {
     let Some(tar) = system_tar() else {
         return;
     };
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     let project = plant(root.path());
     // The project alone is under the root yet.
     let wanted = tree(root.path());
@@ -507,7 +525,7 @@ fn boxit_reads_what_the_tar_of_the_system_writes() {
     let Some(tar) = system_tar() else {
         return;
     };
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     plant(root.path());
     // The project alone is under the root yet.
     let wanted = tree(root.path());
@@ -570,7 +588,7 @@ fn boxit_reads_what_makecab_writes() {
         eprintln!("makecab is a program of Windows: nothing was checked");
         return;
     }
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     let project = plant(root.path());
     plant_program(&project);
     // The directives are read in the code page of the system, which need
@@ -628,7 +646,7 @@ fn boxit_reads_the_other_archives_libarchive_writes() {
     let Some(tar) = bsdtar() else {
         return;
     };
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     let project = plant(root.path());
     // The project alone is under the root yet.
     let wanted = tree(root.path());
@@ -673,7 +691,7 @@ fn boxit_reads_the_images_seven_zip_writes() {
     let Some(seven_zip) = seven_zip() else {
         return;
     };
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     plant(root.path());
     // The project alone is under the root yet.
     let wanted = tree(root.path());
@@ -700,7 +718,7 @@ fn boxit_reads_what_wimlib_writes() {
         missing("wimlib");
         return;
     }
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     let project = plant(root.path());
     plant_program(&project);
     // The image is of what is in the project.
@@ -759,7 +777,7 @@ fn boxit_reads_what_dism_writes() {
         eprintln!("DISM is a program of Windows: nothing was checked");
         return;
     }
-    let root = TempDir::new().unwrap();
+    let root = scratch();
     let project = plant(root.path());
     plant_program(&project);
     // The image is of what is in the project.

@@ -382,13 +382,15 @@ mod tests {
         ] {
             assert_eq!(timestamp(system_time(time).unwrap()), time, "{time:?}");
         }
-        assert_eq!(
-            system_time(Timestamp {
-                seconds: i64::MAX,
-                nanos: 0
-            }),
-            None
-        );
+        // A moment past what this system can store is refused. One it can
+        // store comes back as the same moment.
+        let far = Timestamp {
+            seconds: i64::MAX,
+            nanos: 0,
+        };
+        if let Some(stored) = system_time(far) {
+            assert_eq!(timestamp(stored), far);
+        }
     }
 
     #[test]

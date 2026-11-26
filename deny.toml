@@ -16,6 +16,9 @@ yanked = "deny"
 # An unmaintained crate deep in the tree is reported by its users; here only
 # the crates BoxIt depends on directly count.
 unmaintained = "workspace"
+# Archive times still go through chrono. The crate was marked unmaintained
+# with no replacement that keeps the same clock API, so this release keeps it.
+ignore = ["RUSTSEC-2026-0543"]
 
 [licenses]
 version = 2

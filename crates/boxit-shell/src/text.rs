@@ -15,6 +15,8 @@ pub enum Action {
 
 impl Action {
     /// Argument of `--shell`. None opens the window on the file.
+    /// Only the Windows menu calls this.
+    #[cfg(windows)]
     pub const fn flag(self) -> Option<&'static str> {
         match self {
             Self::Open => None,

@@ -71,6 +71,24 @@ const COLUMNS: Column[] = [
   { key: "modified", label: "modified", className: "date", descending: true },
 ];
 
+const KNOWN_ICONS = ["box", "file", "folder", "extract", "test", "lock", "repair", "link"] as const;
+
+function knownIcon(name: string | undefined): IconName | null {
+  if (name !== undefined && (KNOWN_ICONS as readonly string[]).includes(name)) {
+    return name as IconName;
+  }
+  return null;
+}
+
+/** The icon a format was given in the settings, for a file of that extension. */
+function fileIcon(name: string, icons: Record<string, string>): IconName | null {
+  const dot = name.lastIndexOf(".");
+  if (dot < 0) {
+    return null;
+  }
+  return knownIcon(icons[name.slice(dot + 1).toLowerCase()]);
+}
+
 function iconOf(kind: EntryKind): IconName {
   switch (kind) {
     case "directory":
@@ -107,6 +125,7 @@ export function Browser({
   onActivate,
   onEncoding,
   onFailure,
+  icons = {},
 }: {
   archive: Opened;
   /** The encodings offered for the names of an archive. */
@@ -120,6 +139,8 @@ export function Browser({
   onActivate: (row: Row) => void;
   onEncoding: (encoding: string) => void;
   onFailure: (error: AppError) => void;
+  /** Icon name for a format id. */
+  icons?: Record<string, string>;
 }) {
   const { t, td } = useT();
   const format = useFormat();
@@ -540,7 +561,7 @@ export function Browser({
             <>
               <span className="cell name" role="gridcell">
                 <span className={`kind ${row.kind}`}>
-                  <Icon name={iconOf(row.kind)} />
+                  <Icon name={fileIcon(row.name, icons) ?? iconOf(row.kind)} />
                 </span>
                 <span className="label" title={row.name}>
                   {row.name}
@@ -595,7 +616,7 @@ export function Browser({
                 onClick={() => goTo(depth)}
                 title={depth === 0 ? info.path : crumb.name}
               >
-                {depth === 0 && <Icon name="box" />}
+                {depth === 0 && <Icon name={knownIcon(icons[archive.info.format]) ?? "box"} />}
                 <span>{crumb.name}</span>
               </button>
             </span>
@@ -677,6 +698,7 @@ export function Browser({
           })}
           {info.solid && ` · ${t("browser.solid")}`}
           {info.encrypted && ` · ${t("browser.encrypted")}`}
+          {info.volumes > 1 && ` · ${t("browser.volumes", { count: format.count(info.volumes) })}`}
         </span>
         <label className="status-encoding">
           <span className="dim">{t("browser.encoding")}</span>

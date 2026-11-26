@@ -1265,3 +1265,42 @@ proptest! {
         }
     }
 }
+
+/// A Windows program whose own bytes end at `end`, so an archive glued
+/// after it starts there.
+fn program(end: usize) -> Vec<u8> {
+    let mut bytes = vec![0u8; end];
+    bytes[0] = b'M';
+    bytes[1] = b'Z';
+    bytes[0x3C..0x40].copy_from_slice(&64u32.to_le_bytes());
+    bytes[64..68].copy_from_slice(b"PE\0\0");
+    bytes[70..72].copy_from_slice(&1u16.to_le_bytes());
+    // The one section covers the bytes from 128 to `end`.
+    bytes[104..108].copy_from_slice(&((end - 128) as u32).to_le_bytes());
+    bytes[108..112].copy_from_slice(&128u32.to_le_bytes());
+    bytes
+}
+
+#[test]
+fn an_archive_glued_to_a_program_reads_as_the_archive() {
+    let folder = TempDir::new().unwrap();
+    let ctx = context(1);
+    let tree = small_tree();
+    for format in [ArchiveFormat::Zip, ArchiveFormat::SevenZ] {
+        let archive = pack(&folder, &fast(format), &tree, &ctx).unwrap();
+        let mut glued = program(640);
+        glued.extend(fs::read(&archive).unwrap());
+        let path = folder.path().join(format!("setup-{}.exe", format.id()));
+        fs::write(&path, &glued).unwrap();
+        let opened = open(&path, OpenOptions::default()).unwrap();
+        assert_eq!(opened.format, format, "{}", format.id());
+        assert_eq!(opened.size, glued.len() as u64, "{}", format.id());
+        assert_same(&tree, &unpack_all(&path, &ctx).unwrap(), format.id());
+    }
+    let plain = folder.path().join("empty.exe");
+    fs::write(&plain, program(640)).unwrap();
+    match open(&plain, OpenOptions::default()) {
+        Ok(_) => panic!("a program without an archive was opened"),
+        Err(error) => assert_eq!(error.code, "unknownFormat"),
+    }
+}

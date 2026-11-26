@@ -64,6 +64,17 @@ export interface Settings {
   recent: string[];
   /** Names of passwords kept in the credential store, never the passwords. */
   savedPasswords: string[];
+  keys: Keys;
+  /** Icon name for a format id such as `zip`. */
+  icons: Record<string, string>;
+}
+
+/** Keys that work on the list. A value is `F3` or `Alt+F9`. */
+export interface Keys {
+  view: string;
+  edit: string;
+  copy: string;
+  extract: string;
 }
 
 /** A format as the dialogs see it. */
@@ -123,6 +134,8 @@ export interface ArchiveInfo {
   format: ArchiveFormat;
   /** Size of the archive file. */
   size: number;
+  /** The number of files the archive is in. */
+  volumes: number;
   comment?: string;
   files: number;
   folders: number;
@@ -186,6 +199,10 @@ export interface CreateForm {
   /** Worker threads; 0 takes one per processor. */
   threads: number;
   overwrite: boolean;
+  /** Cut the archive into volumes of this many bytes. */
+  volume: number | null;
+  /** Glue the archive to the program that unpacks it. ZIP and 7z. */
+  selfExtracting: boolean;
 }
 
 export interface Memory {
@@ -195,7 +212,7 @@ export interface Memory {
 
 export type PathState = "file" | "folder" | "missing";
 
-export type JobKind = "extract" | "create" | "test" | "repair";
+export type JobKind = "extract" | "create" | "test" | "repair" | "update";
 export type JobState = "queued" | "running" | "paused" | "done" | "failed" | "cancelled";
 
 export type Question =
@@ -235,10 +252,23 @@ export interface ExtractResult {
   destination: string;
 }
 
+/** The sums of one file of an archive. */
+export interface Sum {
+  path: string;
+  size: number;
+  crc32: number;
+  sha256: string;
+}
+
 /** What a test read. */
 export interface TestResult {
   files: number;
   bytes: number;
+  failed: Skipped[];
+  failedTotal: number;
+  complete: boolean;
+  sums?: Sum[];
+  archiveSha256?: string;
 }
 
 /** What a repair saved. */
@@ -253,6 +283,31 @@ export interface RepairResult {
   unchecked: number;
   lost: Skipped[];
   lostTotal: number;
+}
+
+/** What a change of an archive did. */
+export interface UpdateResult {
+  path: string;
+  format: ArchiveFormat;
+  repacked: boolean;
+  files: number;
+  folders: number;
+  bytes: number;
+  packed: number;
+}
+
+/** A file or folder on the disk, in the second pane. */
+export interface DiskEntry {
+  name: string;
+  path: string;
+  directory: boolean;
+  size: number;
+}
+
+/** When a file was last written, and how long it is. */
+export interface Stamp {
+  modified: number;
+  size: number;
 }
 
 /** What a creation did. */

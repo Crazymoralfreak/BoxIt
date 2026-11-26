@@ -22,6 +22,7 @@ use boxit_engine::passwords::{self, GENERATED_LENGTH};
 use boxit_engine::repair;
 use boxit_engine::settings::ExtractPlace;
 use boxit_engine::tasks::{self, CreateForm, ExtractTask};
+use boxit_engine::update::UpdateRequest;
 use boxit_engine::{archive, budget, Settings};
 
 use crate::app::{AppInfo, Core};
@@ -321,6 +322,174 @@ pub fn repair_start(
 pub fn repair_suggest(core: CoreState<'_>, id: u64) -> Result<String> {
     let session = core.engine.sessions.get(id)?;
     Ok(fsx::display(&repair::beside(session.path())))
+}
+
+/// Closes the open archive and queues a change of it. The window opens the
+/// file again when the job is done: the file cannot stay mapped while it
+/// is replaced.
+#[tauri::command(async)]
+pub fn update_start(
+    core: CoreState<'_>,
+    id: u64,
+    remove: Vec<NodeId>,
+    add: Vec<String>,
+    replace_row: Option<NodeId>,
+    replace_with: Option<String>,
+) -> Result<u64> {
+    let session = core.engine.sessions.get(id)?;
+    let mut removed = std::collections::BTreeSet::new();
+    for row in &remove {
+        if let Some(entry) = session.index.entry(*row) {
+            removed.insert(entry.index);
+        }
+    }
+    let mut replaced = Vec::new();
+    if let (Some(row), Some(path)) = (replace_row, replace_with) {
+        let entry = session
+            .index
+            .entry(row)
+            .ok_or_else(|| Error::new("nothingMatched"))?;
+        replaced.push((entry.index, PathBuf::from(path)));
+    }
+    let request = UpdateRequest {
+        archive: session.path().to_path_buf(),
+        destination: session.path().to_path_buf(),
+        removed,
+        renamed: std::collections::BTreeMap::new(),
+        added: add.into_iter().map(PathBuf::from).collect(),
+        replaced,
+    };
+    let options = boxit_engine::archive::open_options(session.password(), session.encoding());
+    core.engine.sessions.close(id);
+    core.admit(|| tasks::update(&core.engine.jobs, request, options))
+}
+
+/// One file or folder on the disk, for the second pane.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiskEntry {
+    pub name: String,
+    pub path: String,
+    pub directory: bool,
+    pub size: u64,
+}
+
+/// The folder `path` holds. An empty path is the folder of the archive
+/// the window would start from; here it lists the drive of the working folder.
+#[tauri::command(async)]
+pub fn files_list(path: String) -> Result<Vec<DiskEntry>> {
+    let folder = if path.trim().is_empty() {
+        std::env::current_dir().map_err(Error::from)?
+    } else {
+        PathBuf::from(path.trim())
+    };
+    let mut rows = Vec::new();
+    for entry in std::fs::read_dir(&folder)
+        .map_err(|error| Error::from(error).with("path", fsx::display(&folder)))?
+    {
+        let entry =
+            entry.map_err(|error| Error::from(error).with("path", fsx::display(&folder)))?;
+        let meta = entry
+            .metadata()
+            .map_err(|error| Error::from(error).with("path", fsx::display(&entry.path())))?;
+        rows.push(DiskEntry {
+            name: entry.file_name().to_string_lossy().into_owned(),
+            path: fsx::display(&entry.path()),
+            directory: meta.is_dir(),
+            size: if meta.is_file() { meta.len() } else { 0 },
+        });
+    }
+    rows.sort_by(|one, other| {
+        other
+            .directory
+            .cmp(&one.directory)
+            .then_with(|| one.name.to_lowercase().cmp(&other.name.to_lowercase()))
+    });
+    Ok(rows)
+}
+
+/// When a file was last written, and how long it is. Used to notice an edit.
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stamp {
+    pub modified: u64,
+    pub size: u64,
+}
+
+#[tauri::command(async)]
+pub fn file_stamp(path: String) -> Result<Stamp> {
+    let meta = std::fs::metadata(&path).map_err(|error| Error::from(error).with("path", &path))?;
+    let modified = meta
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |time| time.as_secs());
+    Ok(Stamp {
+        modified,
+        size: meta.len(),
+    })
+}
+
+/// Opens a file in the program the system uses for it.
+#[tauri::command(async)]
+pub fn open_path(path: String) -> Result<()> {
+    let target = PathBuf::from(&path);
+    #[cfg(windows)]
+    let mut command = {
+        let mut command = std::process::Command::new("cmd");
+        command.arg("/C").arg("start").arg("").arg(&target);
+        command
+    };
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut command = std::process::Command::new("open");
+        command.arg(&target);
+        command
+    };
+    #[cfg(not(any(windows, target_os = "macos")))]
+    let mut command = {
+        let mut command = std::process::Command::new("xdg-open");
+        command.arg(&target);
+        command
+    };
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| Error::from(error).with("path", path))
+}
+
+/// Registers the menu and the associations for the current user.
+#[tauri::command(async)]
+pub fn shell_register() -> Result<()> {
+    crate::shell::register(&crate::shell::program())
+}
+
+/// Removes the menu and the associations of the current user.
+#[tauri::command(async)]
+pub fn shell_unregister() -> Result<()> {
+    crate::shell::unregister()
+}
+
+/// Queues a test of every archive.
+#[tauri::command(async)]
+pub fn batch_test(core: CoreState<'_>, archives: Vec<String>) -> Result<Vec<u64>> {
+    let paths = archives.into_iter().map(PathBuf::from).collect();
+    core.admit(|| tasks::batch_test(&core.engine.jobs, paths))
+}
+
+/// Queues an extraction of every archive into `destination`.
+#[tauri::command(async)]
+pub fn batch_extract(
+    core: CoreState<'_>,
+    archives: Vec<String>,
+    destination: String,
+) -> Result<Vec<u64>> {
+    if destination.trim().is_empty() {
+        return Err(Error::new("badDestination").with("path", &destination));
+    }
+    let paths = archives.into_iter().map(PathBuf::from).collect();
+    let destination = PathBuf::from(destination.trim());
+    core.admit(|| tasks::batch_extract(&core.engine.jobs, paths, destination))
 }
 
 /// Queues the creation of an archive.

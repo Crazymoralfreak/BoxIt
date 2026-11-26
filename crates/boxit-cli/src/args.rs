@@ -234,6 +234,29 @@ pub struct ExtractArgs {
 }
 
 #[derive(Debug, Args)]
+pub struct UpdateArgs {
+    /// The archive to change
+    pub archive: PathBuf,
+    /// Drop these entries. A folder drops what is inside it
+    #[arg(long = "delete")]
+    pub delete: Vec<String>,
+    /// Give an entry a new name, written as `old=new`
+    #[arg(long = "rename")]
+    pub rename: Vec<String>,
+    /// Files and folders to add, each under its own name
+    #[arg(long = "add")]
+    pub add: Vec<PathBuf>,
+    /// Write the changed archive here instead of replacing the original
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+    /// Password of the archive
+    #[arg(short, long, env = "BOXIT_PASSWORD", hide_env_values = true)]
+    pub password: Option<String>,
+    #[command(flatten)]
+    pub common: CommonArgs,
+}
+
+#[derive(Debug, Args)]
 pub struct RepairArgs {
     #[command(flatten)]
     pub read: ReadArgs,
@@ -301,11 +324,87 @@ pub struct CreateArgs {
     pub encrypt_names: bool,
     /// Cut the archive into volumes of this size, such as 700m or 4g: the
     /// files are named archive.001, archive.002 and so on
-    #[arg(short, long, value_parser = volume)]
+    #[arg(short, long, value_parser = volume, conflicts_with = "sfx")]
     pub volume: Option<u64>,
+    /// Glue the archive to the program that unpacks it. The file is named
+    /// with .exe. ZIP and 7z only
+    #[arg(long, conflicts_with = "volume")]
+    pub sfx: bool,
     /// Replace the archive when it exists
     #[arg(long)]
     pub overwrite: bool,
+    #[command(flatten)]
+    pub common: CommonArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct ConvertArgs {
+    /// The archive to read
+    pub source: PathBuf,
+    /// The archive to write
+    pub destination: PathBuf,
+    /// Format of the new archive; told by its name by default
+    #[arg(short, long, value_parser = format)]
+    pub format: Option<ArchiveFormat>,
+    /// How hard to compress
+    #[arg(short, long, value_enum, default_value_t = LevelArg::Normal)]
+    pub level: LevelArg,
+    /// Password of the archive that is read
+    #[arg(short, long, env = "BOXIT_PASSWORD", hide_env_values = true)]
+    pub password: Option<String>,
+    /// Replace the new archive when it exists
+    #[arg(long)]
+    pub overwrite: bool,
+    #[command(flatten)]
+    pub common: CommonArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct DiffArgs {
+    /// The first archive
+    pub left: PathBuf,
+    /// The second archive
+    pub right: PathBuf,
+    #[command(flatten)]
+    pub common: CommonArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct FindArgs {
+    /// The archive to search
+    pub archive: PathBuf,
+    /// A piece of a name, a mask with * and ?, or re: and a regular expression
+    pub pattern: String,
+    #[command(flatten)]
+    pub common: CommonArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct EstimateArgs {
+    /// Files and folders to measure
+    #[arg(required = true)]
+    pub sources: Vec<PathBuf>,
+    /// Format to estimate
+    #[arg(short, long, value_parser = format, default_value = "zip")]
+    pub format: ArchiveFormat,
+    /// How hard to compress
+    #[arg(short, long, value_enum, default_value_t = LevelArg::Normal)]
+    pub level: LevelArg,
+    #[command(flatten)]
+    pub common: CommonArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct BatchArgs {
+    /// What to do with every archive: test or extract
+    #[arg(value_parser = ["test", "extract"])]
+    pub action: String,
+    /// The archives
+    #[arg(required = true)]
+    pub archives: Vec<PathBuf>,
+    /// The folder to extract into; each archive gets a folder of its name
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
     #[command(flatten)]
     pub common: CommonArgs,
 }

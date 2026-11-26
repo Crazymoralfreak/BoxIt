@@ -209,14 +209,14 @@ fn the_files_of_a_block_are_tied_to_the_ones_before_them() {
         }
         // A folder is tied to nothing, and nothing to the last file.
         let folder_index = index_of(&entries, "empty folder");
-        assert!(opened.reader.tied(folder_index, &ctx).unwrap().is_empty());
+        assert_eq!(opened.reader.tied(folder_index, &ctx).unwrap(), []);
         let last = *with_data.last().unwrap();
-        assert!(opened.reader.tied(last, &ctx).unwrap().is_empty());
+        assert_eq!(opened.reader.tied(last, &ctx).unwrap(), []);
     }
     // The entries of a ZIP are apart from each other.
     let path = pack(&folder, &fast(ArchiveFormat::Zip), &tree, &ctx).unwrap();
     let mut opened = open(&path, OpenOptions::default()).unwrap();
-    assert!(opened.reader.tied(0, &ctx).unwrap().is_empty());
+    assert_eq!(opened.reader.tied(0, &ctx).unwrap(), []);
 }
 
 /// Where the list of a ZIP starts: its last record tells.
@@ -336,7 +336,7 @@ fn a_zip_without_its_list_is_read_by_the_headers_of_its_entries() {
         fs::write(&path, &good[..start - 1]).unwrap();
         let mut salvaged = salvage(&path, known(password), &ctx).expect(label);
         assert!(salvaged.rebuilt, "{label}");
-        assert_eq!(salvaged.lost, [last.path.clone()], "{label}");
+        assert_eq!(salvaged.lost, [last.path.as_str()], "{label}");
         let listed = salvaged.opened.reader.entries(&ctx).expect(label);
         assert_eq!(listed.len(), tree.len() - 1, "{label}");
         assert!(

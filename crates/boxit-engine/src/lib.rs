@@ -9,6 +9,7 @@ pub mod browse;
 pub mod budget;
 pub mod create;
 pub mod extract;
+pub mod extras;
 pub mod formats;
 pub mod fsx;
 pub mod guarded;
@@ -25,6 +26,7 @@ pub mod tasks;
 #[cfg(test)]
 mod testing;
 pub mod text;
+pub mod update;
 pub mod version;
 
 use std::fs;

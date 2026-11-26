@@ -19,6 +19,7 @@
 #![forbid(unsafe_code)]
 
 mod args;
+mod extra;
 mod bench;
 mod commands;
 mod interrupt;
@@ -33,8 +34,9 @@ use clap::{CommandFactory, Parser, Subcommand};
 use serde_json::json;
 
 pub use args::{
-    BenchArgs, CommonArgs, ConflictArg, CreateArgs, ExtractArgs, LevelArg, ListArgs, MethodArg,
-    PasswordArgs, ReadArgs, RepairArgs, SymlinkArg, TestArgs,
+    BatchArgs, BenchArgs, CommonArgs, ConflictArg, ConvertArgs, CreateArgs, DiffArgs, EstimateArgs,
+    ExtractArgs, FindArgs, LevelArg, ListArgs, MethodArg, PasswordArgs, ReadArgs, RepairArgs,
+    SymlinkArg, TestArgs, UpdateArgs,
 };
 
 /// Everything went well.
@@ -80,10 +82,22 @@ pub enum Command {
     Test(TestArgs),
     /// Write what still reads of a damaged archive into a new one
     Repair(RepairArgs),
+    /// Add, remove or rename entries of an archive
+    Update(UpdateArgs),
     /// Measure how fast this machine creates and extracts archives
     Bench(BenchArgs),
     /// Draw a password from the system generator
     Password(PasswordArgs),
+    /// Copy an archive into another format, without unpacking it to disk
+    Convert(ConvertArgs),
+    /// Compare two archives by path, size and CRC
+    Diff(DiffArgs),
+    /// Find entries by a mask or a regular expression
+    Find(FindArgs),
+    /// Estimate how large an archive of these files would be
+    Estimate(EstimateArgs),
+    /// Test or extract several archives
+    Batch(BatchArgs),
 }
 
 /// Where the command line runs.
@@ -148,8 +162,30 @@ pub fn execute(cli: Cli, host: &Host) -> i32 {
             arguments.common.json,
             commands::repair(arguments, host),
         ),
+        Command::Update(arguments) => (
+            "update",
+            arguments.common.json,
+            commands::update(arguments, host),
+        ),
         Command::Bench(arguments) => ("bench", arguments.json, bench::run(arguments, host)),
         Command::Password(arguments) => ("password", false, commands::password(arguments)),
+        Command::Convert(arguments) => (
+            "convert",
+            arguments.common.json,
+            extra::convert(arguments, host),
+        ),
+        Command::Diff(arguments) => ("diff", arguments.common.json, extra::diff(arguments, host)),
+        Command::Find(arguments) => ("find", arguments.common.json, extra::find(arguments, host)),
+        Command::Estimate(arguments) => (
+            "estimate",
+            arguments.common.json,
+            extra::estimate(arguments, host),
+        ),
+        Command::Batch(arguments) => (
+            "batch",
+            arguments.common.json,
+            extra::batch(arguments, host),
+        ),
     };
     match outcome {
         Ok(code) => code,

@@ -70,6 +70,9 @@ pub struct ExtractRequest {
     pub options: ExtractOptions,
     /// Size of the archive file, for the limit on the compression ratio.
     pub archive_size: u64,
+    /// The Mark of the Web of the archive, copied onto every file that is
+    /// written. Empty when the archive has no such mark.
+    pub mark: Vec<u8>,
 }
 
 /// An entry that was not extracted, and why. The reason is an error code of
@@ -322,6 +325,8 @@ struct Sink<'a> {
     folders: Mutex<Vec<(SafePath, EntryMeta)>>,
     counts: Counts,
     skipped: Mutex<Vec<Skipped>>,
+    /// Copied onto each file, when the archive carried a mark.
+    mark: &'a [u8],
 }
 
 impl Sink<'_> {
@@ -558,6 +563,7 @@ impl Sink<'_> {
             tracing::debug!(entry = %meta.path, "the times were not set: {error}");
         }
         drop(file);
+        fsx::copy_mark(&target, self.mark);
         if let Err(error) = fsx::set_permissions(&target, meta) {
             tracing::debug!(entry = %meta.path, "the permissions were not set: {error}");
         }
@@ -769,6 +775,7 @@ pub fn extract(
         folders: Mutex::new(Vec::new()),
         counts: Counts::default(),
         skipped: Mutex::new(Vec::new()),
+        mark: &request.mark,
     };
     // A panic in a format library must not take the program down, and must
     // not leave half an archive behind: it becomes an error, and dropping

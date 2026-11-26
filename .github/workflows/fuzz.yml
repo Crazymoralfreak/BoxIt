@@ -87,16 +87,14 @@ jobs:
             echo "CXXFLAGS=$flags"
           } >> "$GITHUB_ENV"
 
-      # An input may make a reader work for a while, not forever, and may
-      # not make it take more memory than a machine of the users has. A
-      # disc image is larger than the other inputs before it has anything
-      # in it.
+      # A night aims for a million inputs per parser. A hand run can ask
+      # for less. The clock stops a target that cannot reach the count.
       - name: Fuzz
         run: >
           cargo fuzz run ${{ matrix.target }}
           fuzz/corpus/${{ matrix.target }} fuzz/seeds --
-          -max_total_time=${{ inputs.seconds || '600' }}
-          -runs=${{ inputs.runs || '-1' }}
+          -max_total_time=${{ github.event_name == 'workflow_dispatch' && inputs.seconds || '21600' }}
+          -runs=${{ github.event_name == 'workflow_dispatch' && inputs.runs || '1000000' }}
           -timeout=60
           -rss_limit_mb=4096
           -max_len=${{ matrix.target == 'iso' && '2097152' || '1048576' }}

@@ -6,6 +6,8 @@ members = [
   "crates/boxit-codecs",
   "crates/boxit-engine",
   "crates/boxit-cli",
+  "crates/boxit-sfx",
+  "crates/boxit-shell",
   "src-tauri",
 ]
 # The fuzz targets need a nightly compiler and have a workspace of their own.
@@ -69,6 +71,10 @@ opt-level = 2
 # One damaged archive must not take the application down: a panic inside an
 # operation unwinds and is caught at its border, so the release profile keeps
 # `panic = "unwind"`.
+# The release stays on the default allocator and on baseline x86-64.
+# mimalloc and `-C target-cpu=x86-64-v3` are not switched on until a run of
+# `.github/workflows/bench.yml` shows they win on the corpus without dropping
+# machines that are not x86-64-v3. The weekly bench is that measurement.
 [profile.release]
 codegen-units = 1
 lto = true

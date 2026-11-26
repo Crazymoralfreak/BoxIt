@@ -1,0 +1,30 @@
+[package]
+name = "boxit-shell"
+description = "BoxIt menu for the Windows 11 File Explorer"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[lib]
+name = "boxit_shell"
+crate-type = ["cdylib"]
+
+[target.'cfg(windows)'.dependencies]
+windows-core = "0.62"
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Globalization",
+  "Win32_System_Com",
+  "Win32_System_LibraryLoader",
+  "Win32_UI_Shell",
+] }
+
+[dev-dependencies]
+boxit-core.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

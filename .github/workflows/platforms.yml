@@ -1,0 +1,117 @@
+name: Desktop builds
+
+# The window, for every machine the release is offered on. A tag builds them
+# through the release workflow. This file can also be started by hand; then
+# the installers are artifacts of the run and are not published.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  desktop:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            os: macos-latest
+            bundles: dmg
+            config: src-tauri/tauri.macos.conf.json
+            icns: true
+          - name: macOS Intel
+            os: macos-13
+            bundles: dmg
+            config: src-tauri/tauri.macos.conf.json
+            icns: true
+          - name: Linux x64
+            os: ubuntu-24.04
+            bundles: deb,appimage
+            config: src-tauri/tauri.linux.conf.json
+            icns: false
+          - name: Linux ARM64
+            os: ubuntu-24.04-arm
+            bundles: deb,appimage
+            config: src-tauri/tauri.linux.conf.json
+            icns: false
+          - name: Windows ARM64
+            os: windows-11-arm
+            bundles: nsis
+            config: src-tauri/tauri.release.conf.json
+            icns: false
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev \
+            libxdo-dev file
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: macOS icon
+        if: matrix.icns
+        run: |
+          set=src-tauri/icons/icon.iconset
+          mkdir -p "$set"
+          sips -z 16 16 src-tauri/icons/32x32.png --out "$set/icon_16x16.png"
+          sips -z 32 32 src-tauri/icons/32x32.png --out "$set/icon_16x16@2x.png"
+          sips -z 32 32 src-tauri/icons/32x32.png --out "$set/icon_32x32.png"
+          sips -z 64 64 src-tauri/icons/128x128.png --out "$set/icon_32x32@2x.png"
+          sips -z 128 128 src-tauri/icons/128x128.png --out "$set/icon_128x128.png"
+          sips -z 256 256 src-tauri/icons/128x128@2x.png --out "$set/icon_128x128@2x.png"
+          sips -z 256 256 src-tauri/icons/128x128@2x.png --out "$set/icon_256x256.png"
+          sips -z 512 512 src-tauri/icons/128x128@2x.png --out "$set/icon_256x256@2x.png"
+          sips -z 512 512 src-tauri/icons/128x128@2x.png --out "$set/icon_512x512.png"
+          sips -z 1024 1024 src-tauri/icons/128x128@2x.png --out "$set/icon_512x512@2x.png"
+          iconutil -c icns "$set" -o src-tauri/icons/icon.icns
+
+      - name: Build
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri -- build --bundles ${{ matrix.bundles }} --config ${{ matrix.config }}
+
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p release-out
+          find target src-tauri/target -path '*/bundle/*' -type f \
+            \( -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.sig' -o -name 'latest.json' \) \
+            -exec cp {} release-out/ \;
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: boxit-${{ matrix.name }}
+          path: release-out/
+          if-no-files-found: error
+
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-out/*

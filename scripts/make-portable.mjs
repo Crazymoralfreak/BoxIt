@@ -38,6 +38,26 @@ function targetFolder() {
 }
 
 if (!process.argv.includes("--no-build")) {
+  // Built first: the installer packs this file, and the portable copy
+  // puts it next to BoxIt.exe.
+  if (windows) {
+    const sfx = spawnSync("cargo", ["build", "--release", "--locked", "-p", "boxit-sfx"], {
+      cwd: root,
+      stdio: "inherit",
+    });
+    if (sfx.status !== 0) {
+      console.error("The build of the self-extractor failed; the portable copy was not updated.");
+      process.exit(sfx.status ?? 1);
+    }
+    const menu = spawnSync("cargo", ["build", "--release", "--locked", "-p", "boxit-shell"], {
+      cwd: root,
+      stdio: "inherit",
+    });
+    if (menu.status !== 0) {
+      console.error("The build of the context menu failed; the portable copy was not updated.");
+      process.exit(menu.status ?? 1);
+    }
+  }
   // The Tauri build embeds the interface into the program; a plain
   // `cargo build` would leave it looking for the development server.
   // One command line for the shell: npm is a script on Windows and cannot be
@@ -65,6 +85,10 @@ if (!process.argv.includes("--no-build")) {
 
 const release = join(targetFolder(), "release");
 const programs = [program, `boxit-cli${windows ? ".exe" : ""}`];
+if (windows) {
+  programs.push("boxit-sfx.exe");
+  programs.push("boxit_shell.dll");
+}
 for (const name of programs) {
   if (!existsSync(join(release, name))) {
     console.error(`${join(release, name)} does not exist: build the program first.`);

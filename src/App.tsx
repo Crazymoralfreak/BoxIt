@@ -7,6 +7,7 @@ import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState } from "rea
 import { api, toAppError } from "./api";
 import { useAppEvent } from "./api/events";
 import { Browser, type Picked } from "./browser/Browser";
+import { FilesPane } from "./browser/FilesPane";
 import { Icon, type IconName } from "./components/Icon";
 import { baseName } from "./format";
 import { I18nProvider, useT } from "./i18n";
@@ -17,6 +18,7 @@ import type {
   AppInfo,
   CreateChoices,
   ExtractChoices,
+  ExtractResult,
   FormatInfo,
   JobInfo,
   Opened,
@@ -173,6 +175,11 @@ function Shell({
   const [queueOpen, setQueueOpen] = useState(false);
   const [focused, setFocused] = useState<Row | null>(null);
   const [previewVersion, setPreviewVersion] = useState(0);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [filesFolder, setFilesFolder] = useState("");
+  const [filesSelected, setFilesSelected] = useState<string[]>([]);
+  const editing = useRef<{ row: number; name: string; path: string; modified: number; size: number } | null>(null);
+  const seenJobs = useRef(new Set<string>());
   const [answered, setAnswered] = useState<number | null>(null);
   const [dropping, setDropping] = useState(false);
   const [failure, setFailure] = useState<AppError | null>(null);
@@ -308,12 +315,121 @@ function Shell({
       return;
     }
     api
-      .testStart(archive.id, picked.current.folder.id, picked.current.rows)
+      .testStart(archive.id, picked.current.folder.id, picked.current.rows, true)
       .then(() => setQueueOpen(true))
       .catch((error: unknown) => fail(toAppError(error)));
   };
 
   const togglePreview = () => onSettings({ ...settings, preview: !settings.preview });
+
+  const editFocused = () => {
+    if (!archive || !focused || focused.kind === "directory" || !picked.current) {
+      return;
+    }
+    const destination = `${boot.info.dataDir}\\edit`;
+    editing.current = { row: focused.id, name: focused.name, path: "", modified: 0, size: 0 };
+    api
+      .extractStart(archive.id, picked.current.folder.id, [focused.id], destination, {
+        conflicts: "overwrite",
+        symlinks: "skip",
+      })
+      .then(() => setQueueOpen(true))
+      .catch((error: unknown) => fail(toAppError(error)));
+  };
+
+  const copyAcross = () => {
+    if (!archive) {
+      return;
+    }
+    if (filesSelected.length > 0) {
+      void api
+        .updateStart(archive.id, [], filesSelected, null, null)
+        .then(() => {
+          show(null);
+          setFilesSelected([]);
+          setQueueOpen(true);
+        })
+        .catch((error: unknown) => fail(toAppError(error)));
+      return;
+    }
+    if (!picked.current) {
+      return;
+    }
+    const destination = filesFolder || archive.info.path.replace(/[\\/][^\\/]+$/, "");
+    api
+      .extractStart(archive.id, picked.current.folder.id, picked.current.rows, destination, {
+        conflicts: "overwrite",
+        symlinks: "skip",
+      })
+      .then(() => setQueueOpen(true))
+      .catch((error: unknown) => fail(toAppError(error)));
+  };
+
+  const onListKey = useEffectEvent((event: KeyboardEvent) => {
+    if (dialog !== null || locked !== null) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) {
+      return;
+    }
+    const keys = settings.keys ?? { view: "F3", edit: "F4", copy: "F5", extract: "Alt+F9" };
+    const hit = (binding: string) => {
+      const parts = binding.split("+").map((part) => part.trim().toLowerCase());
+      const key = parts[parts.length - 1] ?? "";
+      const wantAlt = parts.includes("alt");
+      const wantCtrl = parts.includes("ctrl");
+      if (event.altKey !== wantAlt || event.ctrlKey !== wantCtrl || event.metaKey !== wantCtrl) {
+        return false;
+      }
+      return event.key.toLowerCase() === key || event.code.toLowerCase() === key;
+    };
+    if (hit(keys.view)) {
+      event.preventDefault();
+      if (archive) {
+        togglePreview();
+      }
+    } else if (hit(keys.edit)) {
+      event.preventDefault();
+      editFocused();
+    } else if (hit(keys.copy)) {
+      event.preventDefault();
+      copyAcross();
+    } else if (hit(keys.extract)) {
+      event.preventDefault();
+      startExtract();
+    }
+  });
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onListKey(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const edit = editing.current;
+      if (!edit || edit.path === "" || edit.modified === 0 || !archive) {
+        return;
+      }
+      void api.fileStamp(edit.path).then(async (stamp) => {
+        if (stamp.modified === edit.modified && stamp.size === edit.size) {
+          return;
+        }
+        edit.modified = stamp.modified;
+        edit.size = stamp.size;
+        const yes = await api.confirm(t("files.changed", { name: edit.name }), t("files.putBack"));
+        if (!yes) {
+          return;
+        }
+        await api.updateStart(archive.id, [], [], edit.row, edit.path);
+        editing.current = null;
+        show(null);
+        setQueueOpen(true);
+      });
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [archive, t]);
 
   const refreshJobs = () => {
     api
@@ -333,6 +449,36 @@ function Shell({
   useEffect(() => start(), []);
 
   useAppEvent("jobs:changed", (job) => setJobs((current) => withJob(current, job)));
+  useEffect(() => {
+    for (const job of jobs) {
+      if (job.state !== "done") {
+        continue;
+      }
+      const mark = `${job.id}:done`;
+      if (seenJobs.current.has(mark)) {
+        continue;
+      }
+      seenJobs.current.add(mark);
+      if (job.kind === "update") {
+        void openArchive(job.archive);
+      }
+      const edit = editing.current;
+      if (job.kind === "extract" && edit && edit.path === "") {
+        const destination = (job.result as ExtractResult).destination;
+        const sep = destination.includes("\\") ? "\\" : "/";
+        const file = destination.endsWith(sep) ? `${destination}${edit.name}` : `${destination}${sep}${edit.name}`;
+        edit.path = file;
+        void api
+          .fileStamp(file)
+          .then((stamp) => {
+            edit.modified = stamp.modified;
+            edit.size = stamp.size;
+            return api.openPath(file);
+          })
+          .catch((error: unknown) => fail(toAppError(error)));
+      }
+    }
+  }, [jobs]);
   useAppEvent("archive:opening", (progress) =>
     setOpening((current) => (current?.token === progress.token ? { ...current, entries: progress.entries } : current)),
   );
@@ -486,6 +632,18 @@ function Shell({
         />
         <ToolButton icon="test" label={t("toolbar.test")} shortcut="Ctrl+T" disabled={!archive} onClick={startTest} />
         <ToolButton
+          icon="folder"
+          label={t("toolbar.files")}
+          disabled={!archive}
+          active={filesOpen}
+          onClick={() => {
+            if (!filesOpen && filesFolder === "" && archive) {
+              setFilesFolder(archive.info.path.replace(/[\\/][^\\/]+$/, ""));
+            }
+            setFilesOpen((open) => !open);
+          }}
+        />
+        <ToolButton
           icon="repair"
           label={t("toolbar.repair")}
           disabled={!archive}
@@ -531,6 +689,7 @@ function Shell({
               key={archive.id}
               archive={archive}
               encodings={boot.encodings}
+              icons={settings.icons}
               ownDrag={ownDrag}
               onPick={(next) => {
                 picked.current = next;
@@ -544,6 +703,18 @@ function Shell({
               onEncoding={(encoding) => void openArchive(archive.info.path, null, encoding)}
               onFailure={fail}
             />
+            {filesOpen && (
+              <FilesPane
+                folder={filesFolder}
+                onFolder={(path) => {
+                  setFilesFolder(path);
+                  setFilesSelected([]);
+                }}
+                selected={filesSelected}
+                onSelected={setFilesSelected}
+                onFailure={fail}
+              />
+            )}
             {settings.preview && (
               <Suspense fallback={<aside className="preview" />}>
                 <PreviewPane

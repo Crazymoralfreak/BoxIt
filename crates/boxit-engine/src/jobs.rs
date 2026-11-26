@@ -48,6 +48,7 @@ pub enum JobKind {
     Create,
     Test,
     Repair,
+    Update,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

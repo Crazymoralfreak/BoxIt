@@ -442,6 +442,7 @@ impl Archive {
             selection,
             options,
             archive_size: self.size,
+            mark: fsx::mark_of(&self.path),
         };
         extract::extract(self.reader.as_mut(), &request, ctx)
     }
@@ -670,7 +671,7 @@ impl Archive {
     }
 
     /// The entries of the archive, as its reader lists them.
-    pub(crate) fn entries(&mut self, ctx: &OpContext) -> Result<Vec<Entry>> {
+    pub fn entries(&mut self, ctx: &OpContext) -> Result<Vec<Entry>> {
         guarded(|| self.reader.entries(ctx))
     }
 }

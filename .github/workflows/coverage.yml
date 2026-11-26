@@ -1,0 +1,34 @@
+name: Coverage
+
+# Line coverage of the core crates. The window is not in the count: it is a
+# shell over the engine. A release wants 85 percent or more.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: Core line coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component llvm-tools-preview
+          rustup default stable
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Measure
+        run: cargo llvm-cov --workspace --exclude boxit --locked --fail-under-lines 85

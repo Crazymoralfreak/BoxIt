@@ -84,7 +84,8 @@ fn the_command_line_is_well_formed() {
 #[test]
 fn commands_are_told_from_files() {
     for command in [
-        "list", "extract", "create", "test", "repair", "bench", "password", "--help", "-V",
+        "list", "extract", "create", "test", "repair", "update", "convert", "diff", "find",
+        "estimate", "batch", "bench", "password", "--help", "-V",
     ] {
         assert!(is_command(command), "{command}");
     }
@@ -109,6 +110,7 @@ fn help_is_not_a_failure_and_nonsense_is() {
     assert!(parse(&["boxit", "create", "a.zip"]).use_stderr());
     assert!(parse(&["boxit", "create", "a.zip", "x", "--level", "11"]).use_stderr());
     assert!(parse(&["boxit", "create", "a.zip", "x", "-p", "1", "--ask-password"]).use_stderr());
+    assert!(parse(&["boxit", "create", "a.exe", "x", "--sfx", "--volume", "10m"]).use_stderr());
     assert!(parse(&["boxit", "list", "a.zip", "--encoding", "klingon"]).use_stderr());
 }
 

@@ -11,8 +11,10 @@ import type {
   FormatInfo,
   JobInfo,
   Memory,
+  DiskEntry,
   Opened,
   PathState,
+  Stamp,
   PreviewKind,
   Reply,
   Row,
@@ -100,6 +102,8 @@ export const api = {
   settingsGet: () => invoke<Settings>("settings_get"),
   /** Stores the settings and returns them as they were stored. */
   settingsSet: (settings: Settings) => invoke<Settings>("settings_set", { settings }),
+  shellRegister: () => invoke<void>("shell_register"),
+  shellUnregister: () => invoke<void>("shell_unregister"),
   formats: () => invoke<FormatInfo[]>("formats_list"),
   nameEncodings: () => invoke<string[]>("name_encodings"),
 
@@ -128,7 +132,20 @@ export const api = {
   repairStart: (id: number, destination: string, overwrite: boolean) =>
     invoke<number>("repair_start", { id, destination, overwrite }),
   repairSuggest: (id: number) => invoke<string>("repair_suggest", { id }),
+  updateStart: (
+    id: number,
+    remove: number[],
+    add: string[],
+    replaceRow: number | null,
+    replaceWith: string | null,
+  ) => invoke<number>("update_start", { id, remove, add, replaceRow, replaceWith }),
+  filesList: (path: string) => invoke<DiskEntry[]>("files_list", { path }),
+  fileStamp: (path: string) => invoke<Stamp>("file_stamp", { path }),
+  openPath: (path: string) => invoke<void>("open_path", { path }),
   createStart: (form: CreateForm) => invoke<number>("create_start", { form }),
+  batchTest: (archives: string[]) => invoke<number[]>("batch_test", { archives }),
+  batchExtract: (archives: string[], destination: string) =>
+    invoke<number[]>("batch_extract", { archives, destination }),
   createMemory: (form: CreateForm) => invoke<Memory>("create_memory", { form }),
   createSuggest: (sources: string[], format: ArchiveFormat) =>
     invoke<string | null>("create_suggest", { sources, format }),

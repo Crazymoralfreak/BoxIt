@@ -14,6 +14,7 @@ fn request(destination: &Path) -> ExtractRequest {
         selection: Selection::All,
         options: ExtractOptions::default(),
         archive_size: 1 << 20,
+        mark: Vec::new(),
     }
 }
 

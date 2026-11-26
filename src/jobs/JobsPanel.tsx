@@ -4,7 +4,7 @@ import { api } from "../api";
 import { Icon } from "../components/Icon";
 import { baseName, useFormat, type Formatter } from "../format";
 import { useT, type Translator } from "../i18n";
-import type { CreateResult, ExtractResult, JobInfo, RepairResult, TestResult } from "../types";
+import type { CreateResult, ExtractResult, JobInfo, RepairResult, TestResult, UpdateResult } from "../types";
 import { isFinished, progressOf } from "./state";
 
 /** What a finished job did, in a line. */
@@ -23,7 +23,10 @@ function outcome(job: JobInfo, { t }: Translator, format: Formatter): string {
     }
     case "test": {
       const result = job.result as TestResult;
-      return t("jobs.tested", { files: format.count(result.files), size: format.size(result.bytes) });
+      const done = t("jobs.tested", { files: format.count(result.files), size: format.size(result.bytes) });
+      return result.failedTotal > 0
+        ? `${done} · ${t("jobs.testedDamaged", { count: format.count(result.failedTotal) })}`
+        : done;
     }
     case "create": {
       const result = job.result as CreateResult;
@@ -33,6 +36,10 @@ function outcome(job: JobInfo, { t }: Translator, format: Formatter): string {
         packed: format.size(result.packed),
         ratio: format.ratio(result.packed, result.bytes),
       });
+    }
+    case "update": {
+      const result = job.result as UpdateResult;
+      return t("jobs.updated", { files: format.count(result.files), packed: format.size(result.packed) });
     }
     case "repair": {
       const result = job.result as RepairResult;
@@ -64,6 +71,8 @@ function placeOf(job: JobInfo): string | null {
       return (job.result as CreateResult).path;
     case "repair":
       return (job.result as RepairResult).path;
+    case "update":
+      return (job.result as UpdateResult).path;
     case "test":
       return null;
     default: {
@@ -81,6 +90,9 @@ function JobLine({ job, onReveal }: { job: JobInfo; onReveal: (path: string) => 
   const finished = isFinished(job.state);
   const place = placeOf(job);
   const skipped = job.state === "done" && job.kind === "extract" ? (job.result as ExtractResult).skipped : [];
+  const tested = job.state === "done" && job.kind === "test" ? (job.result as TestResult) : null;
+  const failed = tested?.failed ?? [];
+  const sums = tested?.sums ?? [];
 
   let detail: string;
   if (job.state === "done") {
@@ -156,6 +168,34 @@ function JobLine({ job, onReveal }: { job: JobInfo; onReveal: (path: string) => 
         <p className="job-current dim label" title={job.current}>
           {job.current}
         </p>
+      )}
+      {failed.length > 0 && (
+        <details className="job-skipped">
+          <summary>{t("jobs.skippedList")}</summary>
+          <ul>
+            {failed.map((entry, place) => (
+              <li key={place}>
+                <span className="label">{entry.path}</span>
+                <span className="dim">{translator.error(entry.reason)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {sums.length > 0 && (
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => {
+            const lines = sums.map((sum) => `${sum.sha256}  ${sum.path}`);
+            if (tested?.archiveSha256) {
+              lines.push(`${tested.archiveSha256}  ${baseName(job.archive)}`);
+            }
+            void navigator.clipboard.writeText(lines.join("\n"));
+          }}
+        >
+          {t("jobs.copySums")}
+        </button>
       )}
       {skipped.length > 0 && (
         <details className="job-skipped">

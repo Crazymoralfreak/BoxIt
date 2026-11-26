@@ -63,6 +63,8 @@ export default function CreateDialog({
   const [dictionary, setDictionary] = useState<number | null>(null);
   const [solid, setSolid] = useState(true);
   const [threads, setThreads] = useState(0);
+  const [volume, setVolume] = useState<number | null>(null);
+  const [sfx, setSfx] = useState(false);
   const [password, setPassword] = useState("");
   const [again, setAgain] = useState("");
   const [saveName, setSaveName] = useState("");
@@ -106,6 +108,8 @@ export default function CreateDialog({
     encryptNames: encrypts && (info?.encryptNames ?? false) && encryptNames,
     threads,
     overwrite: false,
+    volume: sfx ? null : volume,
+    selfExtracting: sfx,
   };
 
   // The name the archive is offered, until the user gives one.
@@ -146,6 +150,8 @@ export default function CreateDialog({
         encryptNames: false,
         threads,
         overwrite: false,
+        volume: null,
+        selfExtracting: false,
       };
       api
         .createMemory(asked)
@@ -169,6 +175,9 @@ export default function CreateDialog({
     setFormatId(next);
     setMethod(null);
     setDictionary(null);
+    if (next !== "zip" && next !== "7z") {
+      setSfx(false);
+    }
   };
 
   const add = async (folders: boolean) => {
@@ -364,6 +373,42 @@ export default function CreateDialog({
             </select>
           </label>
         </div>
+
+        {(formatId === "zip" || formatId === "7z") && (
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={sfx}
+              onChange={(event) => {
+                const on = event.target.checked;
+                setSfx(on);
+                if (on) {
+                  setVolume(null);
+                  setDestination((current) => (current === "" ? current : current.replace(/\.[^.\\/]+$/, ".exe")));
+                }
+              }}
+            />
+            <span>{t("create.sfx")}</span>
+          </label>
+        )}
+        {!sfx && (
+          <label className="field">
+            <span>{t("create.volume")}</span>
+            <select
+              value={volume === null ? "none" : String(volume)}
+              onChange={(event) => {
+                const chosen = event.target.value;
+                setVolume(chosen === "none" ? null : Number(chosen));
+              }}
+            >
+              <option value="none">{t("create.volumeNone")}</option>
+              <option value={10 * 1024 * 1024}>{t("create.volume10")}</option>
+              <option value={100 * 1024 * 1024}>{t("create.volume100")}</option>
+              <option value={700 * 1024 * 1024}>{t("create.volume700")}</option>
+              <option value={4 * 1024 * 1024 * 1024}>{t("create.volume4g")}</option>
+            </select>
+          </label>
+        )}
 
         {info?.solid && (
           <label className="check">

@@ -195,6 +195,78 @@ export default function SettingsDialog({
         </fieldset>
 
         <fieldset className="choices">
+          <legend>{t("settings.keys")}</legend>
+          <div className="fields">
+            {(
+              [
+                ["view", "keyView"],
+                ["edit", "keyEdit"],
+                ["copy", "keyCopy"],
+                ["extract", "keyExtract"],
+              ] as const
+            ).map(([key, label]) => (
+              <label className="field" key={key}>
+                <span>{t(`settings.${label}`)}</span>
+                <input
+                  value={settings.keys[key]}
+                  onChange={(event) =>
+                    onChange({ ...settings, keys: { ...settings.keys, [key]: event.target.value } })
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="choices">
+          <legend>{t("settings.icons")}</legend>
+          <div className="fields">
+            {["zip", "7z", "rar", "tar"].map((format) => (
+              <label className="field" key={format}>
+                <span>{format}</span>
+                <select
+                  value={settings.icons[format] ?? ""}
+                  onChange={(event) => {
+                    const icons = { ...settings.icons };
+                    if (event.target.value === "") {
+                      delete icons[format];
+                    } else {
+                      icons[format] = event.target.value;
+                    }
+                    onChange({ ...settings, icons });
+                  }}
+                >
+                  <option value="">{t("create.savedNone")}</option>
+                  {["box", "file", "folder", "extract", "test", "lock", "repair"].map((icon) => (
+                    <option key={icon} value={icon}>
+                      {icon}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="choices">
+          <legend>{t("settings.explorer")}</legend>
+          <div className="buttons">
+            <button
+              type="button"
+              onClick={() => void api.shellRegister().catch((error: unknown) => onFailure(toAppError(error)))}
+            >
+              {t("settings.explorerRegister")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void api.shellUnregister().catch((error: unknown) => onFailure(toAppError(error)))}
+            >
+              {t("settings.explorerRemove")}
+            </button>
+          </div>
+        </fieldset>
+
+        <fieldset className="choices">
           <legend>{t("settings.passwords")}</legend>
           {settings.savedPasswords.length === 0 ? (
             <p className="dim">{t("settings.passwordsEmpty")}</p>

@@ -11,6 +11,7 @@
     "extract": "Extract",
     "test": "Test",
     "repair": "Repair",
+    "files": "Files",
     "preview": "Preview",
     "queue": "Operations",
     "settings": "Settings"
@@ -32,7 +33,7 @@
   "browser": {
     "up": "Up one level",
     "path": "Path in the archive",
-    "filter": "Filter by name",
+    "filter": "Name, *.txt or re:pattern",
     "column": {
       "name": "Name",
       "size": "Size",
@@ -49,6 +50,7 @@
     "archive": "{format} · files: {files} · {size} → {packed} ({ratio}%)",
     "solid": "solid",
     "encrypted": "password protected",
+    "volumes": "{count} volumes",
     "encoding": "Name encoding",
     "encodingAuto": "Auto"
   },
@@ -110,6 +112,13 @@
     "threads": "Threads",
     "threadsAuto": "All ({count})",
     "solid": "Compress the files together: a smaller archive, slower access to one file",
+    "volume": "Split into volumes",
+    "volumeNone": "Do not split",
+    "volume10": "10 MB",
+    "volume100": "100 MB",
+    "volume700": "700 MB",
+    "volume4g": "4 GB",
+    "sfx": "Self-extracting program (.exe)",
     "protection": "Password protection",
     "password": "Password",
     "passwordAgain": "Password once more",
@@ -133,6 +142,10 @@
     "replace": "Replace",
     "failed": "The repair could not be started"
   },
+  "sfx": {
+    "folder": "Extract into this folder",
+    "working": "Extracting"
+  },
   "jobs": {
     "title": "Operations",
     "empty": "No operations",
@@ -141,7 +154,8 @@
       "extract": "Extraction",
       "create": "Creation",
       "test": "Test",
-      "repair": "Repair"
+      "repair": "Repair",
+      "update": "Change"
     },
     "state": {
       "queued": "queued",
@@ -162,6 +176,9 @@
     "skipped": "left out: {count}",
     "skippedList": "What was left out",
     "tested": "No errors. Files: {files}, {size}",
+    "testedDamaged": "Damaged: {count}",
+    "copySums": "Copy checksums",
+    "updated": "Files: {files}, {packed}",
     "repaired": "Files: {files}, folders: {folders}, {size}",
     "repairedLost": "not recovered: {count}",
     "created": "Files: {files}, {size} → {packed} ({ratio}%)"
@@ -210,7 +227,28 @@
     "openLogs": "Open the log",
     "passwords": "Saved passwords",
     "passwordsEmpty": "No saved passwords",
-    "passwordForget": "Forget"
+    "passwordForget": "Forget",
+    "keys": "Keys",
+    "keyView": "View",
+    "keyEdit": "Edit",
+    "keyCopy": "Copy",
+    "keyExtract": "Extract",
+    "icons": "Icons of formats",
+    "explorer": "Explorer",
+    "explorerRegister": "Add the menu and associations",
+    "explorerRemove": "Remove the menu and associations"
+  },
+  "shell": {
+    "open": "Open in BoxIt",
+    "extractHere": "Extract here",
+    "extractTo": "Extract to a folder",
+    "add": "Add to an archive",
+    "email": "Compress and email"
+  },
+  "files": {
+    "up": "Up one level",
+    "changed": "{name} was changed. Put it back into the archive?",
+    "putBack": "Put back"
   },
   "update": {
     "title": "Updates",
@@ -265,6 +303,11 @@
     "repairedLost": "Not recovered: {count}",
     "repairedRebuilt": "The list of the archive was rebuilt from the headers of its files",
     "repairedUnchecked": "Files locked with a password were copied as they are: {count}",
+    "updated": "Changed {path}. Files: {files}",
+    "converted": "Converted into {path}. Files: {files}, {size} → {packed}",
+    "compared": "Only in the first: {left}. Only in the second: {right}. Different: {different}",
+    "found": "Found: {count}",
+    "estimated": "About {packed}, between {low} and {high}",
     "created": "Created {path}. Files: {files}, folders: {folders}, links: {links}; {size} → {packed} ({ratio}%)",
     "password": "Password for {name}: ",
     "passwordRetry": "Wrong password. Password for {name}: ",
@@ -330,6 +373,7 @@
     "listLost": "The list of the {format} archive is damaged and cannot be rebuilt",
     "nothingRecovered": "Nothing in the archive could be recovered",
     "repairOverItself": "A repair is written to another file, so the damaged archive stays as it is",
+    "sfxUsage": "The self-extractor takes -o folder, -y and -p password",
     "encryptionUnsupported": "The {format} format cannot encrypt",
     "singleFileOnly": "This format compresses one file only",
     "hardlinkUnsupported": "The format does not keep hard links: {name}",
@@ -340,6 +384,9 @@
     "cannotUnpackItself": "A self-extracting archive is made of ZIP or 7z, not of {format}",
     "moduleMissing": "The self-extracting module boxit-sfx.exe was not found next to BoxIt",
     "nothingToAdd": "Nothing to add to the archive",
+    "sameAsSource": "The new archive has to be a different file from the one that is read",
+    "badPattern": "The search pattern cannot be read",
+    "shellFailed": "The Explorer integration could not be changed",
     "duplicateName": "Two items would get the same name in the archive: {name}",
     "badOutput": "An archive cannot be created here: {path}",
     "badDestination": "Cannot extract here: {path}",

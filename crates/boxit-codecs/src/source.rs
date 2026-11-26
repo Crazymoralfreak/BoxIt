@@ -50,6 +50,9 @@ struct Volume {
     /// Where the volume starts in the archive.
     start: u64,
     size: u64,
+    /// Bytes at the start of the file that are not part of the archive:
+    /// the program a self-extracting archive is glued to.
+    skip: u64,
     map: Option<Mapped>,
 }
 
@@ -118,6 +121,7 @@ impl Source {
                     path,
                     start: size,
                     size: length,
+                    skip: 0,
                 });
                 size += length;
             }
@@ -148,6 +152,7 @@ impl Source {
                 path: self.path.clone(),
                 start: 0,
                 size: self.size,
+                skip: 0,
                 map: self.map.clone(),
             }],
         };
@@ -156,6 +161,7 @@ impl Source {
             path: PathBuf::new(),
             start: self.size,
             size,
+            skip: 0,
             map: Some(Mapped(Arc::new(Held::Memory(tail)))),
         });
         Self {
@@ -177,6 +183,28 @@ impl Source {
     /// volumes.
     pub fn volumes(&self) -> usize {
         self.volumes.as_ref().map_or(1, |volumes| volumes.len())
+    }
+
+    /// The archive that starts `start` bytes into this file. What stands
+    /// before that is a program the archive was glued to.
+    pub(crate) fn suffix(&self, start: u64) -> Result<Self> {
+        if start == 0 || start >= self.size || self.volumes.is_some() {
+            return Err(boxit_core::Error::new("internal").detail("suffix"));
+        }
+        let size = self.size - start;
+        Ok(Self {
+            path: self.path.clone(),
+            name: self.name.clone(),
+            size,
+            map: None,
+            volumes: Some(Arc::new(vec![Volume {
+                path: self.path.clone(),
+                start: 0,
+                size,
+                skip: start,
+                map: self.map.clone(),
+            }])),
+        })
     }
 
     /// The bytes of an archive that is not a file: there is nothing at its
@@ -271,8 +299,9 @@ impl Read for Joined {
             .volumes
             .partition_point(|volume| volume.start + volume.size <= self.position);
         let volume = &self.volumes[index];
-        let offset = self.position - volume.start;
-        let count = (volume.size - offset).min(buffer.len() as u64) as usize;
+        let offset = self.position - volume.start + volume.skip;
+        let count =
+            (volume.size - (self.position - volume.start)).min(buffer.len() as u64) as usize;
         let count = match &volume.map {
             Some(map) => {
                 let offset = offset as usize;

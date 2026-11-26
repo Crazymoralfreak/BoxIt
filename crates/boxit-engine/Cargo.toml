@@ -19,6 +19,8 @@ boxit-core.workspace = true
 boxit-security.workspace = true
 crc32fast = "1.5"
 fs4 = { version = "1.1", default-features = false, features = ["sync"] }
+globset = "0.4"
+regex = "1"
 # The system generator: a password is drawn from it and from nowhere else.
 getrandom = "0.3"
 rayon.workspace = true

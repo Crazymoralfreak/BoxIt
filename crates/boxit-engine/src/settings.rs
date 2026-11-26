@@ -1,5 +1,7 @@
 //! Application settings shared by the window and the command line.
 
+use std::collections::BTreeMap;
+
 use boxit_core::{ArchiveFormat, ConflictPolicy, Level, SymlinkPolicy};
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +42,27 @@ pub struct ExtractChoices {
     pub symlinks: SymlinkPolicy,
 }
 
+/// The keys that work on the list. A value is `F3` or `Alt+F9`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Keys {
+    pub view: String,
+    pub edit: String,
+    pub copy: String,
+    pub extract: String,
+}
+
+impl Default for Keys {
+    fn default() -> Self {
+        Self {
+            view: String::from("F3"),
+            edit: String::from("F4"),
+            copy: String::from("F5"),
+            extract: String::from("Alt+F9"),
+        }
+    }
+}
+
 /// What the dialog of a new archive starts with.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -72,10 +95,16 @@ pub struct Settings {
     /// Names of passwords kept in the credential store of the system. The
     /// passwords themselves are not in the settings.
     pub saved_passwords: Vec<String>,
+    pub keys: Keys,
+    /// Icon name for a format id. An unknown name is dropped.
+    pub icons: BTreeMap<String, String>,
 }
 
 /// How many archives opened lately are remembered.
 pub const RECENT_KEPT: usize = 12;
+
+/// Icon names the window knows how to draw.
+const FORMAT_ICONS: &[&str] = &["box", "file", "folder", "extract", "test", "lock", "repair"];
 
 impl Settings {
     /// Puts an archive at the head of the ones opened lately.
@@ -109,6 +138,21 @@ impl Settings {
         });
         self.recent.truncate(RECENT_KEPT);
         crate::passwords::normalize_names(&mut self.saved_passwords);
+        if self.keys.view.trim().is_empty() {
+            self.keys.view = Keys::default().view;
+        }
+        if self.keys.edit.trim().is_empty() {
+            self.keys.edit = Keys::default().edit;
+        }
+        if self.keys.copy.trim().is_empty() {
+            self.keys.copy = Keys::default().copy;
+        }
+        if self.keys.extract.trim().is_empty() {
+            self.keys.extract = Keys::default().extract;
+        }
+        self.icons.retain(|format, icon| {
+            ArchiveFormat::from_id(format).is_some() && FORMAT_ICONS.contains(&icon.as_str())
+        });
         self
     }
 }

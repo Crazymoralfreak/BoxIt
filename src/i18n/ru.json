@@ -11,6 +11,7 @@
     "extract": "Распаковать",
     "test": "Проверить",
     "repair": "Восстановить",
+    "files": "Файлы",
     "preview": "Просмотр",
     "queue": "Операции",
     "settings": "Настройки"
@@ -32,7 +33,7 @@
   "browser": {
     "up": "На уровень выше",
     "path": "Путь в архиве",
-    "filter": "Фильтр по имени",
+    "filter": "Имя, *.txt или re:шаблон",
     "column": {
       "name": "Имя",
       "size": "Размер",
@@ -49,6 +50,7 @@
     "archive": "{format} · файлов: {files} · {size} → {packed} ({ratio}%)",
     "solid": "непрерывный",
     "encrypted": "защищён паролем",
+    "volumes": "томов: {count}",
     "encoding": "Кодировка имён",
     "encodingAuto": "Авто"
   },
@@ -110,6 +112,13 @@
     "threads": "Потоки",
     "threadsAuto": "Все ({count})",
     "solid": "Сжимать файлы вместе: архив меньше, доступ к одному файлу медленнее",
+    "volume": "Разбить на тома",
+    "volumeNone": "Не разбивать",
+    "volume10": "10 МБ",
+    "volume100": "100 МБ",
+    "volume700": "700 МБ",
+    "volume4g": "4 ГБ",
+    "sfx": "Самораспаковывающаяся программа (.exe)",
     "protection": "Защита паролем",
     "password": "Пароль",
     "passwordAgain": "Пароль ещё раз",
@@ -133,6 +142,10 @@
     "replace": "Заменить",
     "failed": "Восстановление не началось"
   },
+  "sfx": {
+    "folder": "Распаковать в эту папку",
+    "working": "Распаковка"
+  },
   "jobs": {
     "title": "Операции",
     "empty": "Операций нет",
@@ -141,7 +154,8 @@
       "extract": "Распаковка",
       "create": "Создание",
       "test": "Проверка",
-      "repair": "Восстановление"
+      "repair": "Восстановление",
+      "update": "Изменение"
     },
     "state": {
       "queued": "в очереди",
@@ -162,6 +176,9 @@
     "skipped": "пропущено: {count}",
     "skippedList": "Что пропущено",
     "tested": "Ошибок нет. Файлов: {files}, {size}",
+    "testedDamaged": "Повреждено: {count}",
+    "copySums": "Копировать контрольные суммы",
+    "updated": "Файлов: {files}, {packed}",
     "repaired": "Файлов: {files}, папок: {folders}, {size}",
     "repairedLost": "не восстановлено: {count}",
     "created": "Файлов: {files}, {size} → {packed} ({ratio}%)"
@@ -210,7 +227,28 @@
     "openLogs": "Открыть журнал",
     "passwords": "Сохранённые пароли",
     "passwordsEmpty": "Сохранённых паролей нет",
-    "passwordForget": "Забыть"
+    "passwordForget": "Забыть",
+    "keys": "Клавиши",
+    "keyView": "Просмотр",
+    "keyEdit": "Правка",
+    "keyCopy": "Копирование",
+    "keyExtract": "Распаковка",
+    "icons": "Значки форматов",
+    "explorer": "Проводник",
+    "explorerRegister": "Добавить меню и ассоциации",
+    "explorerRemove": "Убрать меню и ассоциации"
+  },
+  "shell": {
+    "open": "Открыть в BoxIt",
+    "extractHere": "Распаковать здесь",
+    "extractTo": "Распаковать в папку",
+    "add": "Добавить в архив",
+    "email": "Сжать и отправить"
+  },
+  "files": {
+    "up": "На уровень вверх",
+    "changed": "{name} изменён. Вернуть его в архив?",
+    "putBack": "Вернуть"
   },
   "update": {
     "title": "Обновления",
@@ -265,6 +303,11 @@
     "repairedLost": "Не восстановлено: {count}",
     "repairedRebuilt": "Оглавление архива собрано заново по заголовкам его файлов",
     "repairedUnchecked": "Файлы под паролем скопированы как есть: {count}",
+    "updated": "Изменён {path}. Файлов: {files}",
+    "converted": "Преобразовано в {path}. Файлов: {files}, {size} → {packed}",
+    "compared": "Только в первом: {left}. Только во втором: {right}. Различаются: {different}",
+    "found": "Найдено: {count}",
+    "estimated": "Около {packed}, от {low} до {high}",
     "created": "Создан {path}. Файлов: {files}, папок: {folders}, ссылок: {links}; {size} → {packed} ({ratio}%)",
     "password": "Пароль для {name}: ",
     "passwordRetry": "Неверный пароль. Пароль для {name}: ",
@@ -330,6 +373,7 @@
     "listLost": "Оглавление архива {format} повреждено и собрать его заново нельзя",
     "nothingRecovered": "В архиве не нашлось ничего, что можно восстановить",
     "repairOverItself": "Восстановление записывается в другой файл, повреждённый архив остаётся как есть",
+    "sfxUsage": "Самораспаковщик принимает -o папка, -y и -p пароль",
     "encryptionUnsupported": "Формат {format} не умеет шифровать",
     "singleFileOnly": "Этот формат сжимает только один файл",
     "hardlinkUnsupported": "Формат не хранит жёсткие ссылки: {name}",
@@ -340,6 +384,9 @@
     "cannotUnpackItself": "Самораспаковывающийся архив делается из ZIP или 7z, а не из {format}",
     "moduleMissing": "Рядом с BoxIt не найден модуль самораспаковки boxit-sfx.exe",
     "nothingToAdd": "Нечего добавлять в архив",
+    "sameAsSource": "Новый архив должен быть другим файлом, не тем, который читается",
+    "badPattern": "Шаблон поиска не читается",
+    "shellFailed": "Не удалось изменить интеграцию с Проводником",
     "duplicateName": "Два элемента получили бы в архиве одно имя: {name}",
     "badOutput": "Здесь нельзя создать архив: {path}",
     "badDestination": "Сюда нельзя распаковать: {path}",

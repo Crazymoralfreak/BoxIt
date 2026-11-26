@@ -14,11 +14,13 @@ use boxit_engine::create::{self, CreateRequest, Layout};
 use boxit_engine::extract::Outcome;
 use boxit_engine::passwords;
 use boxit_engine::repair::{self, RepairRequest};
+use boxit_engine::update::{self, UpdateRequest};
 use boxit_engine::text::{error_text, text};
 use serde::Serialize;
 
 use crate::args::{
     CommonArgs, CreateArgs, ExtractArgs, ListArgs, MethodArg, PasswordArgs, RepairArgs, TestArgs,
+    UpdateArgs,
 };
 use crate::screen::Screen;
 use crate::{interrupt, show, Host, EXIT_FAILED, EXIT_OK, EXIT_PARTIAL};
@@ -217,6 +219,79 @@ pub(crate) fn test(arguments: &TestArgs, host: &Host) -> Result<i32> {
     })
 }
 
+pub(crate) fn update(arguments: &UpdateArgs, host: &Host) -> Result<i32> {
+    let language = host.language.as_str();
+    let screen = screen(host, &arguments.common);
+    let ctx = context(&screen, arguments.common.threads);
+    let source = absolute(&arguments.archive)?;
+    let destination = match &arguments.output {
+        Some(output) => absolute(output)?,
+        None => source.clone(),
+    };
+    let read = boxit_codecs::OpenOptions {
+        password: arguments
+            .password
+            .as_deref()
+            .filter(|password| !password.is_empty())
+            .map(Password::from),
+        ..boxit_codecs::OpenOptions::default()
+    };
+    let entries = {
+        let mut archive = Archive::open(&source, read.clone())?;
+        archive.entries(&ctx)?
+    };
+    let place = |name: &str| {
+        entries
+            .iter()
+            .find(|entry| entry.meta.path.trim_end_matches('/') == name.trim_end_matches('/'))
+            .map(|entry| entry.index)
+            .ok_or_else(|| Error::new("nothingMatched"))
+    };
+    let mut removed = std::collections::BTreeSet::new();
+    for name in &arguments.delete {
+        removed.insert(place(name)?);
+    }
+    let mut renamed = std::collections::BTreeMap::new();
+    for pair in &arguments.rename {
+        let (from, to) = pair
+            .split_once('=')
+            .ok_or_else(|| Error::new("nothingMatched"))?;
+        renamed.insert(place(from)?, to.to_owned());
+    }
+    let updated = {
+        let _watch = screen.watch();
+        update::update(
+            &UpdateRequest {
+                archive: source,
+                destination,
+                removed,
+                renamed,
+                added: arguments
+                    .add
+                    .iter()
+                    .map(|path| absolute(path))
+                    .collect::<Result<_>>()?,
+                replaced: Vec::new(),
+            },
+            read,
+            &ctx,
+        )?
+    };
+    if arguments.common.json {
+        show::print_json(&updated);
+    } else {
+        show::say(text(
+            language,
+            "cli.updated",
+            &[
+                ("path", &updated.path),
+                ("files", &updated.files.to_string()),
+            ],
+        ));
+    }
+    Ok(EXIT_OK)
+}
+
 /// Prints a new password and nothing else: it is not written to the log.
 pub(crate) fn password(arguments: &PasswordArgs) -> Result<i32> {
     let drawn = passwords::generate(arguments.length, arguments.symbols)?;
@@ -338,6 +413,11 @@ pub(crate) fn create(arguments: &CreateArgs, host: &Host) -> Result<i32> {
         encrypt_names: arguments.encrypt_names,
         ..CreateOptions::new(format)
     };
+    let destination = if arguments.sfx {
+        destination.with_extension("exe")
+    } else {
+        destination
+    };
     let request = CreateRequest {
         sources: arguments
             .sources
@@ -347,7 +427,11 @@ pub(crate) fn create(arguments: &CreateArgs, host: &Host) -> Result<i32> {
         destination,
         options,
         overwrite: arguments.overwrite,
-        layout: arguments.volume.map_or(Layout::Whole, Layout::Volumes),
+        layout: if arguments.sfx {
+            Layout::SelfExtracting(create::module())
+        } else {
+            arguments.volume.map_or(Layout::Whole, Layout::Volumes)
+        },
     };
     tracing::info!(archive = %request.destination.display(), format = format.id(), "create");
 

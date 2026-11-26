@@ -163,6 +163,37 @@ pub fn set_folder_times(folder: &Path, meta: &EntryMeta) -> io::Result<()> {
     handle.set_times(times)
 }
 
+/// The Mark of the Web stored on `path`, when the system kept one.
+pub fn mark_of(path: &Path) -> Vec<u8> {
+    #[cfg(windows)]
+    {
+        let name = format!("{}:Zone.Identifier", path.display());
+        fs::read(name).unwrap_or_default()
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+        Vec::new()
+    }
+}
+
+/// Writes `mark` onto `path` as its Mark of the Web. A mark that is empty
+/// is left off. On a system without this mark the call does nothing.
+pub fn copy_mark(path: &Path, mark: &[u8]) {
+    if mark.is_empty() {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        let name = format!("{}:Zone.Identifier", path.display());
+        let _ = fs::write(name, mark);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+    }
+}
+
 /// Creates the file an entry is extracted into; it must not exist. On
 /// Windows the file gets the hidden, system and archive attributes of the
 /// entry at once.
@@ -440,6 +471,21 @@ mod tests {
         set_folder_times(&path, &meta).unwrap();
         let modified = fs::metadata(&path).unwrap().modified().unwrap();
         assert_eq!(timestamp(modified).seconds, 1_400_000_000);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_mark_on_an_archive_is_copied_onto_a_file() {
+        let folder = tempfile::tempdir().unwrap();
+        let source = folder.path().join("a.zip");
+        let target = folder.path().join("out.txt");
+        fs::write(&source, b"zip").unwrap();
+        let mark = b"[ZoneTransfer]\r\nZoneId=3\r\n";
+        fs::write(format!("{}:Zone.Identifier", source.display()), mark).unwrap();
+        assert_eq!(mark_of(&source), mark);
+        fs::write(&target, b"out").unwrap();
+        copy_mark(&target, &mark_of(&source));
+        assert_eq!(mark_of(&target), mark);
     }
 
     #[test]

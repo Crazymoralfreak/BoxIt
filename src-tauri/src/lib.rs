@@ -13,8 +13,12 @@ pub mod app;
 pub mod commands;
 pub mod console;
 pub mod dialogs;
+#[cfg(windows)]
+mod modern;
 pub mod protocol;
 pub mod secrets;
+pub mod shell;
+pub mod shell_run;
 pub mod update;
 
 use std::env;
@@ -89,6 +93,8 @@ fn run_window(started: Instant) -> i32 {
             commands::opened_files,
             commands::settings_get,
             commands::settings_set,
+            commands::shell_register,
+            commands::shell_unregister,
             commands::formats_list,
             commands::name_encodings,
             commands::archive_open,
@@ -104,6 +110,12 @@ fn run_window(started: Instant) -> i32 {
             commands::test_start,
             commands::repair_start,
             commands::repair_suggest,
+            commands::update_start,
+            commands::files_list,
+            commands::file_stamp,
+            commands::open_path,
+            commands::batch_test,
+            commands::batch_extract,
             commands::create_start,
             commands::create_memory,
             commands::create_suggest,
@@ -155,6 +167,9 @@ pub fn run() -> i32 {
     let started = Instant::now();
     // An argument that is not Unicode is a file name, never a command.
     let first = env::args_os().nth(1);
+    if first.as_deref().and_then(|first| first.to_str()) == Some("--shell") {
+        return shell_run::run();
+    }
     let command = first
         .as_deref()
         .and_then(|first| first.to_str())

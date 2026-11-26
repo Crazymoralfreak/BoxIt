@@ -90,11 +90,20 @@ pub fn unpacks_itself(format: ArchiveFormat) -> bool {
 /// archive put after it.
 pub const MODULE: &str = "boxit-sfx.exe";
 
-/// Where the module is looked for: next to the program that runs.
+/// Where the module is looked for: next to the program that runs, or in
+/// the resources folder an installer puts beside it.
 pub fn module() -> PathBuf {
+    let beside = |folder: &Path| {
+        let direct = folder.join(MODULE);
+        if direct.is_file() {
+            return Some(direct);
+        }
+        let nested = folder.join("resources").join(MODULE);
+        nested.is_file().then_some(nested)
+    };
     env::current_exe()
         .ok()
-        .and_then(|program| program.parent().map(|folder| folder.join(MODULE)))
+        .and_then(|program| program.parent().and_then(beside))
         .unwrap_or_else(|| PathBuf::from(MODULE))
 }
 
@@ -291,6 +300,56 @@ fn write<W: Write + Seek + Send>(
         .map_err(|error| Error::from(error.into_error()))
 }
 
+/// What a walk of the disk found, ready to be stored.
+pub(crate) struct Gathered {
+    pub items: Vec<Item>,
+    pub files: u64,
+    pub folders: u64,
+    pub links: u64,
+    pub bytes: u64,
+}
+
+/// The sources as entries, skipping the paths in `skip`. An empty result is
+/// not an error: the caller decides whether nothing to add is a failure.
+pub(crate) fn gather(sources: &[PathBuf], skip: &[PathBuf], ctx: &OpContext) -> Result<Gathered> {
+    let walk = Walk { skip, ctx };
+    let found = ThreadPoolBuilder::new()
+        .num_threads(ctx.budget.threads)
+        .build()
+        .map_err(|error| Error::new("internal").detail(error))?
+        .install(|| walk.all(sources))?;
+    let mut gathered = Gathered {
+        items: Vec::with_capacity(found.len()),
+        files: 0,
+        folders: 0,
+        links: 0,
+        bytes: 0,
+    };
+    for Found { meta, path } in found {
+        match meta.kind {
+            EntryKind::File => {
+                gathered.files += 1;
+                gathered.bytes += meta.size.unwrap_or(0);
+                let data = DiskFile {
+                    path,
+                    name: meta.path.clone(),
+                    progress: ctx.progress.clone(),
+                };
+                gathered.items.push(Item::new(meta, data));
+            }
+            EntryKind::Directory => {
+                gathered.folders += 1;
+                gathered.items.push(Item::bare(meta));
+            }
+            EntryKind::Symlink | EntryKind::Hardlink => {
+                gathered.links += 1;
+                gathered.items.push(Item::bare(meta));
+            }
+        }
+    }
+    Ok(gathered)
+}
+
 /// Creates an archive of the sources. Either the whole archive appears at
 /// the destination, or nothing changes there.
 pub fn create(request: &CreateRequest, ctx: &OpContext) -> Result<Created> {
@@ -321,38 +380,15 @@ pub fn create(request: &CreateRequest, ctx: &OpContext) -> Result<Created> {
         if matches!(request.layout, Layout::Volumes(_)) {
             skip.append(&mut output::standing(&destination));
         }
-        let walk = Walk { skip: &skip, ctx };
-        let found = ThreadPoolBuilder::new()
-            .num_threads(ctx.budget.threads)
-            .build()
-            .map_err(|error| Error::new("internal").detail(error))?
-            .install(|| walk.all(&request.sources))?;
-        if found.is_empty() {
+        let gathered = gather(&request.sources, &skip, ctx)?;
+        if gathered.items.is_empty() {
             return Err(Error::new("nothingToAdd"));
         }
-        let mut items = Vec::with_capacity(found.len());
-        for Found { meta, path } in found {
-            match meta.kind {
-                EntryKind::File => {
-                    created.files += 1;
-                    created.bytes += meta.size.unwrap_or(0);
-                    let data = DiskFile {
-                        path,
-                        name: meta.path.clone(),
-                        progress: ctx.progress.clone(),
-                    };
-                    items.push(Item::new(meta, data));
-                }
-                EntryKind::Directory => {
-                    created.folders += 1;
-                    items.push(Item::bare(meta));
-                }
-                EntryKind::Symlink | EntryKind::Hardlink => {
-                    created.links += 1;
-                    items.push(Item::bare(meta));
-                }
-            }
-        }
+        created.files = gathered.files;
+        created.folders = gathered.folders;
+        created.links = gathered.links;
+        created.bytes = gathered.bytes;
+        let items = gathered.items;
         ctx.progress
             .total(Some(created.bytes), Some(items.len() as u64));
 

@@ -23,6 +23,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 boxit-cli.workspace = true
+boxit-codecs.workspace = true
 boxit-core.workspace = true
 boxit-engine.workspace = true
 tauri = { version = "2", features = [] }
@@ -40,7 +41,15 @@ tracing.workspace = true
 # Passwords live in the Windows Credential Manager, not in the data folder.
 keyring = { version = "3", default-features = false, features = ["windows-native"] }
 # Attaching to the console of the terminal a command was typed in.
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Console"] }
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_System_Com",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Console",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+] }
+winreg = "0.55"
 
 [lints]
 workspace = true

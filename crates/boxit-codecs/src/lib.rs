@@ -38,6 +38,7 @@ pub mod lha;
 mod lzms;
 mod lzx;
 pub mod names;
+mod overlay;
 pub mod plan;
 #[cfg(feature = "rar")]
 pub mod rar;
@@ -157,11 +158,31 @@ pub fn reader(
     })
 }
 
+/// The format of `source`, and where in the file the archive starts.
+/// A program with an archive glued after it starts past the program.
+fn identified(source: &Source) -> Result<(ArchiveFormat, u64)> {
+    if let Some(pasted) = overlay::find(source)? {
+        return Ok((pasted.format, pasted.offset));
+    }
+    Ok((recognize(source)?, 0))
+}
+
+/// `source` with the program in front of a glued archive taken off, when
+/// there is one.
+fn without_program(source: Source, offset: u64) -> Result<Source> {
+    if offset == 0 {
+        Ok(source)
+    } else {
+        source.suffix(offset)
+    }
+}
+
 /// Opens `source` as whatever its content says it is.
 pub fn open_source(source: Source, options: OpenOptions) -> Result<Opened> {
-    let format = recognize(&source)?;
+    let (format, offset) = identified(&source)?;
     let (size, volumes) = (source.size(), source.volumes());
     let path = source.path().to_path_buf();
+    let source = without_program(source, offset)?;
     let reader = reader(format, source, options)?;
     Ok(Opened {
         format,
@@ -200,9 +221,10 @@ pub fn can_repair(format: ArchiveFormat) -> bool {
 /// its list, for its entries have no headers of their own.
 pub fn salvage(path: &Path, options: OpenOptions, ctx: &OpContext) -> Result<Salvaged> {
     let source = Source::open(path)?;
-    let format = recognize(&source)?;
+    let (format, offset) = identified(&source)?;
     let (size, volumes) = (source.size(), source.volumes());
     let path = source.path().to_path_buf();
+    let source = without_program(source, offset)?;
     let (reader, rebuilt, lost): (Box<dyn ArchiveReader>, _, _) = match format {
         ArchiveFormat::Zip => {
             let (reader, rebuilt, lost) = ZipReader::salvage(source, options, ctx)?;

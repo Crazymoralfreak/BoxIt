@@ -448,18 +448,18 @@ impl Index {
         rows.into_iter().map(|row| row.id).collect()
     }
 
-    /// The rows among `ids` whose names hold `needle`, whatever the case of
-    /// the letters, in the order they came in; all of them when there is
-    /// nothing to look for.
+    /// The rows among `ids` whose names `needle` asks for. A piece of a
+    /// name, a mask with `*` and `?`, or `re:` and a regular expression.
+    /// Nothing to look for keeps every row.
     pub fn matching(&self, ids: Vec<NodeId>, needle: &str) -> Vec<NodeId> {
-        let needle = needle.trim().to_lowercase();
+        let needle = needle.trim();
         if needle.is_empty() {
             return ids;
         }
         ids.into_iter()
             .filter(|id| {
                 self.node(*id)
-                    .is_some_and(|node| node.name.to_lowercase().contains(&needle))
+                    .is_some_and(|node| crate::extras::name_matches(&node.name, needle))
             })
             .collect()
     }

@@ -5,14 +5,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use boxit_codecs::OpenOptions as ReadOptions;
 use boxit_core::{
     ArchiveFormat, Conflict, ConflictAnswer, ConflictPolicy, CreateOptions, EntryMeta, Error,
     ExtractOptions, Interaction, Level, Method, OpContext, Password, PasswordRequest, Result,
+    Selection,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::archive::{open_options, TestOptions};
+use crate::archive::{open_options, Archive, TestOptions};
 use crate::browse::NodeId;
 use crate::budget;
 use crate::create::{self, CreateRequest, Layout};
@@ -20,6 +22,7 @@ use crate::fsx;
 use crate::jobs::{JobInfo, JobKind, JobState, Jobs, Ticket};
 use crate::repair::{self, RepairRequest};
 use crate::sessions::Session;
+use crate::update::{self, UpdateRequest};
 use crate::settings::ExtractPlace;
 
 /// Passes the questions of an operation on, and notes the password it was
@@ -150,6 +153,57 @@ pub fn repair(jobs: &Jobs, session: Arc<Session>, destination: PathBuf, overwrit
         let ctx = ticket.context(budget::system(0));
         Ok(json!(repair::repair(&request, options, &ctx)?))
     })
+}
+
+/// Queues a change of an archive. The caller has closed the session that
+/// had the file open: the new file takes its place, and the window opens
+/// it again when the job is done.
+pub fn update(jobs: &Jobs, request: UpdateRequest, options: boxit_codecs::OpenOptions) -> u64 {
+    let archive = fsx::display(&request.archive);
+    jobs.spawn(JobKind::Update, &archive, None, move |ticket| {
+        let ctx = ticket.context(budget::system(0));
+        Ok(json!(update::update(&request, options, &ctx)?))
+    })
+}
+
+/// Queues a test of every archive. Each archive is its own job.
+pub fn batch_test(jobs: &Jobs, archives: Vec<PathBuf>) -> Vec<u64> {
+    archives
+        .into_iter()
+        .map(|path| {
+            let shown = fsx::display(&path);
+            jobs.spawn(JobKind::Test, &shown, None, move |ticket| {
+                let ctx = ticket.context(budget::system(0));
+                let mut archive = Archive::open(&path, ReadOptions::default())?;
+                Ok(json!(archive.test(
+                    &Selection::All,
+                    TestOptions::default(),
+                    &ctx
+                )?))
+            })
+        })
+        .collect()
+}
+
+/// Queues an extraction of every archive into `destination`, each in a
+/// folder of its name.
+pub fn batch_extract(jobs: &Jobs, archives: Vec<PathBuf>, destination: PathBuf) -> Vec<u64> {
+    archives
+        .into_iter()
+        .map(|path| {
+            let shown = fsx::display(&path);
+            let folder = destination.join(path.file_stem().unwrap_or_default());
+            let target = fsx::display(&folder);
+            jobs.spawn(JobKind::Extract, &shown, Some(&target), move |ticket| {
+                let ctx = ticket.context(budget::system(0));
+                let mut archive = Archive::open(&path, ReadOptions::default())?;
+                let outcome = archive.extract(&folder, Selection::All, ExtractOptions::default(), &ctx)?;
+                let mut result = json!(outcome);
+                result["destination"] = Value::String(fsx::display(&folder));
+                Ok(result)
+            })
+        })
+        .collect()
 }
 
 /// Queues the creation of an archive.

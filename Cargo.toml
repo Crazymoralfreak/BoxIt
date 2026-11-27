@@ -14,7 +14,7 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Mityy"]
 license = "MIT"
 edition = "2021"

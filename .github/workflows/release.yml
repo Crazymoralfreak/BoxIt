@@ -135,8 +135,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           node --input-type=module <<'EOF'
-          import { readdirSync, readFileSync, existsSync, writeFileSync } from "node:fs";
-          import { join } from "node:path";
+          import { readdirSync, readFileSync, existsSync, writeFileSync, statSync } from "node:fs";
+          import { basename, join } from "node:path";
 
           const tag = process.env.GITHUB_REF_NAME;
           const version = tag.replace(/^v/, "");
@@ -163,17 +163,26 @@ jobs:
               { suffix: ".AppImage.sig", keys: ["linux-aarch64-appimage"] },
             ],
           };
+          function signaturesIn(dir) {
+            const found = [];
+            for (const name of readdirSync(dir)) {
+              const full = join(dir, name);
+              if (statSync(full).isDirectory()) found.push(...signaturesIn(full));
+              else if (name.endsWith(".sig")) found.push(full);
+            }
+            return found;
+          }
           const platforms = {};
           for (const [folder, specs] of Object.entries(groups)) {
             const dir = join("sigs", folder);
             if (!existsSync(dir)) continue;
-            const names = readdirSync(dir);
+            const paths = signaturesIn(dir);
             for (const spec of specs) {
-              const sigName = names.find((name) => name.endsWith(spec.suffix));
-              if (!sigName) continue;
-              const file = spec.file ?? sigName.slice(0, -".sig".length);
+              const sigPath = paths.find((full) => basename(full).endsWith(spec.suffix));
+              if (!sigPath) continue;
+              const file = spec.file ?? basename(sigPath).slice(0, -".sig".length);
               const entry = {
-                signature: readFileSync(join(dir, sigName), "utf8").trim(),
+                signature: readFileSync(sigPath, "utf8").trim(),
                 url: `https://github.com/${repo}/releases/download/${tag}/${file}`,
               };
               for (const key of spec.keys) platforms[key] = entry;
@@ -191,4 +200,4 @@ jobs:
           };
           writeFileSync("latest.json", `${JSON.stringify(manifest, null, 2)}\n`);
           EOF
-          gh release upload "$GITHUB_REF_NAME" latest.json --clobber
+          gh release upload "$GITHUB_REF_NAME" latest.json --clobber --repo "$GITHUB_REPOSITORY"

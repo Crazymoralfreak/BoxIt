@@ -27,26 +27,36 @@ jobs:
             bundles: dmg
             config: src-tauri/tauri.macos.conf.json
             icns: true
+            updater: darwin-aarch64
+            updaterFile: aarch64
           - name: macOS Intel
             os: macos-15-intel
             bundles: dmg
             config: src-tauri/tauri.macos.conf.json
             icns: true
+            updater: darwin-x86_64
+            updaterFile: x64
           - name: Linux x64
             os: ubuntu-24.04
             bundles: deb,appimage
             config: src-tauri/tauri.linux.conf.json
             icns: false
+            updater: linux-x86_64
+            updaterFile: ""
           - name: Linux ARM64
             os: ubuntu-24.04-arm
             bundles: deb,appimage
             config: src-tauri/tauri.linux.conf.json
             icns: false
+            updater: linux-aarch64
+            updaterFile: ""
           - name: Windows ARM64
             os: windows-11-arm
             bundles: nsis
             config: src-tauri/tauri.release.conf.json
             icns: false
+            updater: windows-aarch64
+            updaterFile: ""
     steps:
       - uses: actions/checkout@v7
 
@@ -98,7 +108,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           build() {
-            npm run tauri -- build --bundles ${{ matrix.bundles }} --config ${{ matrix.config }}
+            npm run tauri -- build --bundles ${{ matrix.bundles }} \
+              --config ${{ matrix.config }} \
+              --config src-tauri/tauri.release.conf.json
           }
           if [ "${{ runner.os }}" != "macOS" ]; then
             build
@@ -134,13 +146,20 @@ jobs:
                 -exec cp {} release-out/ \;
             fi
           done
+          # The Mac updater installs the application archive, not the disk image.
+          # The two architectures would otherwise both be named BoxIt.app.tar.gz.
+          if [ "$(uname)" = "Darwin" ]; then
+            version=$(node -p "require('./package.json').version")
+            archive=$(find target -path '*/bundle/macos/*.app.tar.gz' -type f | head -n 1)
+            cp "$archive" "release-out/BoxIt_${version}_${{ matrix.updaterFile }}.app.tar.gz"
+          fi
 
       - name: Keep the updater signature
-        if: matrix.name == 'Windows ARM64' && startsWith(github.ref, 'refs/tags/v')
+        if: matrix.updater != '' && startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v7
         with:
-          name: updater-sig-windows-aarch64
-          path: target/release/bundle/nsis/*.sig
+          name: updater-sig-${{ matrix.updater }}
+          path: target/release/bundle/**/*.sig
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7

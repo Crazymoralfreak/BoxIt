@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "boxit"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boxit-cli",
  "boxit-codecs",
@@ -465,7 +465,7 @@ dependencies = [
 
 [[package]]
 name = "boxit-cli"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boxit-codecs",
  "boxit-core",
@@ -482,7 +482,7 @@ dependencies = [
 
 [[package]]
 name = "boxit-codecs"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boxit-core",
  "bzip2",
@@ -510,7 +510,7 @@ dependencies = [
 
 [[package]]
 name = "boxit-core"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -519,7 +519,7 @@ dependencies = [
 
 [[package]]
 name = "boxit-engine"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boxit-codecs",
  "boxit-core",
@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "boxit-security"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boxit-core",
  "proptest",
@@ -552,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "boxit-sfx"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boxit-codecs",
  "boxit-core",
@@ -563,7 +563,7 @@ dependencies = [
 
 [[package]]
 name = "boxit-shell"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "boxit-core",
  "serde_json",

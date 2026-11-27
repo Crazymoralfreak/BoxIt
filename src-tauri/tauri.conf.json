@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BoxIt",
   "mainBinaryName": "BoxIt",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "identifier": "com.crazymoralfreak.boxit",
   "build": {
     "frontendDist": "../dist",
@@ -59,6 +59,8 @@
         "installMode": "currentUser",
         "languages": ["English", "Russian"],
         "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
         "installerHooks": "./windows/hooks.nsh"
       }
     }

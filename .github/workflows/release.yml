@@ -105,9 +105,17 @@ jobs:
           if-no-files-found: error
 
       - name: Publish
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release-out/*
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = @(Get-ChildItem release-out -File | Select-Object -ExpandProperty FullName)
+          if ($files.Count -eq 0) {
+            throw "no installers to publish"
+          }
+          gh release upload $env:GITHUB_REF_NAME @files --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not upload the installers"
+          }
 
   # Installed copies read latest.json. The signature is inside that file, so
   # the .sig files themselves are not published.

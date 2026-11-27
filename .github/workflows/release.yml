@@ -93,11 +93,78 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release-out | Out-Null
           Get-ChildItem -Recurse -File -Path target, src-tauri/target -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match '\\bundle\\' -and $_.Extension -in '.exe', '.sig', '.json' } |
+            Where-Object { $_.FullName -match '\\bundle\\' -and $_.Extension -eq '.exe' } |
             Copy-Item -Destination release-out
           Copy-Item BoxIt_*_x64-portable.zip release-out
+
+      # The signature stays off the release page. The manifest job reads it.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: updater-sig-windows-x86_64
+          path: target/release/bundle/nsis/*.sig
+          if-no-files-found: error
 
       - name: Publish
         uses: softprops/action-gh-release@v2
         with:
           files: release-out/*
+
+  # Installed copies read latest.json. The signature is inside that file, so
+  # the .sig files themselves are not published.
+  manifest:
+    name: Update manifest
+    needs: [windows, desktop]
+    if: always() && needs.windows.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: updater-sig-*
+          path: sigs
+
+      - name: Publish the update manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'EOF'
+          import { readdirSync, readFileSync, existsSync, writeFileSync } from "node:fs";
+          import { join } from "node:path";
+
+          const tag = process.env.GITHUB_REF_NAME;
+          const version = tag.replace(/^v/, "");
+          const repo = process.env.GITHUB_REPOSITORY;
+          const targets = {
+            "updater-sig-windows-x86_64": {
+              keys: ["windows-x86_64", "windows-x86_64-nsis"],
+              file: `BoxIt_${version}_x64-setup.exe`,
+            },
+            "updater-sig-windows-aarch64": {
+              keys: ["windows-aarch64", "windows-aarch64-nsis"],
+              file: `BoxIt_${version}_arm64-setup.exe`,
+            },
+          };
+          const platforms = {};
+          for (const [folder, target] of Object.entries(targets)) {
+            const dir = join("sigs", folder);
+            if (!existsSync(dir)) continue;
+            const sigName = readdirSync(dir).find((name) => name.endsWith(".sig"));
+            if (!sigName) continue;
+            const entry = {
+              signature: readFileSync(join(dir, sigName), "utf8").trim(),
+              url: `https://github.com/${repo}/releases/download/${tag}/${target.file}`,
+            };
+            for (const key of target.keys) platforms[key] = entry;
+          }
+          if (!platforms["windows-x86_64"]) {
+            console.error("The Windows x64 signature is missing");
+            process.exit(1);
+          }
+          const manifest = {
+            version,
+            notes: `https://github.com/${repo}/releases/tag/${tag}`,
+            pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+            platforms,
+          };
+          writeFileSync("latest.json", `${JSON.stringify(manifest, null, 2)}\n`);
+          EOF
+          gh release upload "$GITHUB_REF_NAME" latest.json --clobber

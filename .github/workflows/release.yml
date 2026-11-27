@@ -133,27 +133,43 @@ jobs:
           const tag = process.env.GITHUB_REF_NAME;
           const version = tag.replace(/^v/, "");
           const repo = process.env.GITHUB_REPOSITORY;
-          const targets = {
-            "updater-sig-windows-x86_64": {
-              keys: ["windows-x86_64", "windows-x86_64-nsis"],
-              file: `BoxIt_${version}_x64-setup.exe`,
-            },
-            "updater-sig-windows-aarch64": {
-              keys: ["windows-aarch64", "windows-aarch64-nsis"],
-              file: `BoxIt_${version}_arm64-setup.exe`,
-            },
+          const groups = {
+            "updater-sig-windows-x86_64": [
+              { suffix: ".exe.sig", keys: ["windows-x86_64", "windows-x86_64-nsis"], file: `BoxIt_${version}_x64-setup.exe` },
+            ],
+            "updater-sig-windows-aarch64": [
+              { suffix: ".exe.sig", keys: ["windows-aarch64", "windows-aarch64-nsis"], file: `BoxIt_${version}_arm64-setup.exe` },
+            ],
+            "updater-sig-darwin-aarch64": [
+              { suffix: ".tar.gz.sig", keys: ["darwin-aarch64", "darwin-aarch64-app"], file: `BoxIt_${version}_aarch64.app.tar.gz` },
+            ],
+            "updater-sig-darwin-x86_64": [
+              { suffix: ".tar.gz.sig", keys: ["darwin-x86_64", "darwin-x86_64-app"], file: `BoxIt_${version}_x64.app.tar.gz` },
+            ],
+            "updater-sig-linux-x86_64": [
+              { suffix: ".deb.sig", keys: ["linux-x86_64-deb"] },
+              { suffix: ".AppImage.sig", keys: ["linux-x86_64-appimage"] },
+            ],
+            "updater-sig-linux-aarch64": [
+              { suffix: ".deb.sig", keys: ["linux-aarch64-deb"] },
+              { suffix: ".AppImage.sig", keys: ["linux-aarch64-appimage"] },
+            ],
           };
           const platforms = {};
-          for (const [folder, target] of Object.entries(targets)) {
+          for (const [folder, specs] of Object.entries(groups)) {
             const dir = join("sigs", folder);
             if (!existsSync(dir)) continue;
-            const sigName = readdirSync(dir).find((name) => name.endsWith(".sig"));
-            if (!sigName) continue;
-            const entry = {
-              signature: readFileSync(join(dir, sigName), "utf8").trim(),
-              url: `https://github.com/${repo}/releases/download/${tag}/${target.file}`,
-            };
-            for (const key of target.keys) platforms[key] = entry;
+            const names = readdirSync(dir);
+            for (const spec of specs) {
+              const sigName = names.find((name) => name.endsWith(spec.suffix));
+              if (!sigName) continue;
+              const file = spec.file ?? sigName.slice(0, -".sig".length);
+              const entry = {
+                signature: readFileSync(join(dir, sigName), "utf8").trim(),
+                url: `https://github.com/${repo}/releases/download/${tag}/${file}`,
+              };
+              for (const key of spec.keys) platforms[key] = entry;
+            }
           }
           if (!platforms["windows-x86_64"]) {
             console.error("The Windows x64 signature is missing");

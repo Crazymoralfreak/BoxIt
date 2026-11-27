@@ -100,9 +100,16 @@ jobs:
         shell: bash
         run: |
           mkdir -p release-out
-          find target src-tauri/target -path '*/bundle/*' -type f \
-            \( -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.sig' -o -name 'latest.json' \) \
-            -exec cp {} release-out/ \;
+          # The workspace writes bundles under target/. src-tauri/target is
+          # only there when the window crate was built on its own, and find
+          # fails the step when a starting directory is missing.
+          for dir in target src-tauri/target; do
+            if [ -d "$dir" ]; then
+              find "$dir" -path '*/bundle/*' -type f \
+                \( -name '*.dmg' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.sig' -o -name 'latest.json' \) \
+                -exec cp {} release-out/ \;
+            fi
+          done
 
       - uses: actions/upload-artifact@v7
         with:

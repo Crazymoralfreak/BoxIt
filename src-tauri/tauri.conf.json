@@ -59,6 +59,8 @@
         "installMode": "currentUser",
         "languages": ["English", "Russian"],
         "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
         "installerHooks": "./windows/hooks.nsh"
       }
     }

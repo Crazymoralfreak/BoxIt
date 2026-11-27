@@ -90,11 +90,34 @@ jobs:
           iconutil -c icns "$set" -o src-tauri/icons/icon.icns
 
       - name: Build
+        shell: bash
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run tauri -- build --bundles ${{ matrix.bundles }} --config ${{ matrix.config }}
+        run: |
+          build() {
+            npm run tauri -- build --bundles ${{ matrix.bundles }} --config ${{ matrix.config }}
+          }
+          if [ "${{ runner.os }}" != "macOS" ]; then
+            build
+            exit 0
+          fi
+          # hdiutil on the Intel runner often cannot eject the image it just
+          # made and reports "Resource busy". The application is already
+          # compiled, so the next attempt only repeats the disk image.
+          set +e
+          code=1
+          for attempt in 1 2 3; do
+            build
+            code=$?
+            if [ "$code" -eq 0 ]; then
+              exit 0
+            fi
+            echo "dmg attempt ${attempt} failed (${code})"
+            sleep 20
+          done
+          exit "$code"
 
       - name: Collect installers
         shell: bash

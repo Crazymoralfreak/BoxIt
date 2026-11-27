@@ -1,0 +1,42 @@
+[package]
+name = "boxit-engine"
+description = "BoxIt engine: the operations on archives and files, settings and the data folder"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rar"]
+# Reading RAR with the UnRAR library: see the same feature of boxit-codecs.
+rar = ["boxit-codecs/rar"]
+
+[dependencies]
+boxit-codecs.workspace = true
+boxit-core.workspace = true
+boxit-security.workspace = true
+crc32fast = "1.5"
+fs4 = { version = "1.1", default-features = false, features = ["sync"] }
+globset = "0.4"
+regex = "1"
+# The system generator: a password is drawn from it and from nowhere else.
+getrandom = "0.3"
+rayon.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11"
+# Only the amount of memory of the machine is asked for.
+sysinfo = { version = "0.40", default-features = false, features = ["system"] }
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std", "registry"] }
+tracing-appender = "0.2"
+sys-locale = "0.3"
+zeroize = "1.8"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

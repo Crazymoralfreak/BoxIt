@@ -1,0 +1,86 @@
+[package]
+name = "boxit-codecs"
+description = "BoxIt codecs: reading and writing of the archive formats, and the benchmark corpus"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rar"]
+# RAR is read by UnRAR, the C++ library of the author of the format, under
+# a licence of its own: it may be used to read archives and never to make
+# an archiver that writes them. A build without this feature has no line of
+# that code and does not open RAR.
+rar = ["dep:unrar_sys", "dep:tempfile"]
+
+[dependencies]
+boxit-core.workspace = true
+# Deflate goes through zlib-rs, the fastest implementation that needs no C
+# toolchain. Zopfli is left out: it trades minutes for a percent.
+zip = { version = "9.8", default-features = false, features = [
+    "aes-crypto",
+    "bzip2",
+    "deflate64",
+    "deflate-flate2-zlib-rs",
+    "legacy-zip",
+    "lzma",
+    "ppmd",
+    "xz",
+    "zstd",
+] }
+sevenz-rust2 = { version = "0.26", default-features = false, features = [
+    "aes256",
+    "bzip2",
+    "compress",
+    "deflate",
+    "lz4",
+    "ppmd",
+    "zstd",
+] }
+tar = { version = "0.4.46", default-features = false }
+flate2 = { version = "1.1", default-features = false, features = ["zlib-rs", "runtime_detection"] }
+bzip2 = "0.6"
+lzma-rust2 = "0.26"
+zstd = { version = "0.14", features = ["zstdmt"] }
+lz4_flex = "0.14"
+# LHA, a format that is only read: every method of LHarc, LArc and PMarc.
+delharc = { version = "0.8", default-features = false, features = [
+    "std",
+    "lh1",
+    "lz",
+    "pm",
+    "lhx",
+    "no-unsafe-assertions",
+] }
+# Only the clock: the local time zone, for the DOS times of ZIP.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+memmap2 = "0.9"
+# The search for the headers of a ZIP that lost its list.
+memchr = "2.7"
+chardetng = "1.0"
+encoding_rs = "0.8"
+crc32fast = "1.5"
+# The images of Windows name every file by the SHA-1 of its content.
+sha1 = "0.11"
+rayon.workspace = true
+# The sources of UnRAR and the script that builds them. Its own description
+# of the structures is not used: see `rar.rs`.
+unrar_sys = { version = "0.5.8", optional = true }
+# UnRAR opens files by their names: an archive held in memory is written
+# out for it.
+tempfile = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion.workspace = true
+proptest.workspace = true
+tempfile.workspace = true
+
+[[bench]]
+name = "codecs"
+harness = false
+
+[lints]
+workspace = true

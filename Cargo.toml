@@ -1,0 +1,86 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/boxit-core",
+  "crates/boxit-security",
+  "crates/boxit-codecs",
+  "crates/boxit-engine",
+  "crates/boxit-cli",
+  "crates/boxit-sfx",
+  "crates/boxit-shell",
+  "src-tauri",
+]
+# The fuzz targets need a nightly compiler and have a workspace of their own.
+exclude = ["fuzz"]
+
+[workspace.package]
+version = "0.0.1"
+authors = ["Mityy"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.98"
+repository = "https://github.com/Crazymoralfreak/BoxIt"
+
+[workspace.dependencies]
+boxit-core = { path = "crates/boxit-core" }
+boxit-security = { path = "crates/boxit-security" }
+# Without their default features: the feature `rar` is passed down by name
+# from the crate that is built, so a build without it reaches every crate.
+boxit-codecs = { path = "crates/boxit-codecs", default-features = false }
+boxit-engine = { path = "crates/boxit-engine", default-features = false }
+boxit-cli = { path = "crates/boxit-cli", default-features = false }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+rayon = "1.12"
+proptest = "1.12"
+tempfile = "3.27"
+criterion = { version = "0.8", default-features = false }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Sizes of archives are u64 and are shown, scaled and compared as numbers of
+# every width; the casts are checked where they could lose something.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
+doc_markdown = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+needless_pass_by_value = "allow"
+similar_names = "allow"
+struct_excessive_bools = "allow"
+too_many_arguments = "allow"
+too_many_lines = "allow"
+unreadable_literal = "allow"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# One damaged archive must not take the application down: a panic inside an
+# operation unwinds and is caught at its border, so the release profile keeps
+# `panic = "unwind"`.
+# The release stays on the default allocator and on baseline x86-64.
+# mimalloc and `-C target-cpu=x86-64-v3` are not switched on until a run of
+# `.github/workflows/bench.yml` shows they win on the corpus without dropping
+# machines that are not x86-64-v3. The weekly bench is that measurement.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "unwind"
+strip = true
+
+[profile.bench]
+lto = "thin"

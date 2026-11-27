@@ -1,0 +1,108 @@
+name: Fuzzing
+
+# The readers of the archive formats against inputs made by libFuzzer (the
+# targets are in fuzz/). Archives come from strangers: a damaged or hostile
+# file must end as an error, never as a crash, a hang or an allocation of
+# gigabytes. Runs every night and by hand; the inputs found so far are kept
+# between the runs, so every night continues where the last one stopped.
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds to fuzz each target for
+        default: "600"
+      runs:
+        description: Inputs to try per target (-1 means as many as the time allows)
+        default: "-1"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - open
+          - zip
+          - sevenz
+          - tar
+          - streams
+          - ar
+          - cpio
+          - lha
+          - cab
+          - iso
+          - wim
+          - rar
+    steps:
+      - uses: actions/checkout@v7
+
+      # The sanitizers of the fuzzer are a feature of the nightly compiler.
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install nightly --profile minimal
+          rustup default nightly
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+
+      - name: Inputs found by the earlier runs
+        uses: actions/cache@v5
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
+
+      # Formats that sum their headers give the fuzzer nothing to hold on to
+      # until it has an archive to change: the archives of RAR and the disc
+      # images the tests read are where every target starts.
+      - name: Inputs to start from
+        run: |
+          mkdir -p fuzz/corpus/${{ matrix.target }} fuzz/seeds
+          cp crates/boxit-codecs/fixtures/*.rar fuzz/seeds/
+          for image in crates/boxit-codecs/fixtures/*.iso.gz; do
+            gunzip --stdout "$image" > "fuzz/seeds/$(basename "${image%.gz}")"
+          done
+
+      # cargo fuzz instruments the code in Rust alone. UnRAR is C++: built
+      # by clang with the same sanitizers, it is watched like the rest.
+      - name: Build UnRAR with the sanitizers of the fuzzer
+        if: matrix.target == 'rar'
+        run: |
+          flags="-fsanitize=address,fuzzer-no-link -fno-omit-frame-pointer -g"
+          {
+            echo "CC=clang"
+            echo "CXX=clang++"
+            echo "CFLAGS=$flags"
+            echo "CXXFLAGS=$flags"
+          } >> "$GITHUB_ENV"
+
+      # A night aims for a million inputs per parser. A hand run can ask
+      # for less. The clock stops a target that cannot reach the count.
+      - name: Fuzz
+        run: >
+          cargo fuzz run ${{ matrix.target }}
+          fuzz/corpus/${{ matrix.target }} fuzz/seeds --
+          -max_total_time=${{ github.event_name == 'workflow_dispatch' && inputs.seconds || '21600' }}
+          -runs=${{ github.event_name == 'workflow_dispatch' && inputs.runs || '1000000' }}
+          -timeout=60
+          -rss_limit_mb=4096
+          -max_len=${{ matrix.target == 'iso' && '2097152' || '1048576' }}
+
+      - name: Keep the inputs that broke something
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-findings-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}
+          if-no-files-found: ignore

@@ -1,0 +1,18 @@
+[package]
+name = "boxit-security"
+description = "BoxIt security: safe paths, link rules and limits for extracting archives nobody vouches for"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+boxit-core.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

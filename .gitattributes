@@ -1,0 +1,13 @@
+# Text is kept with the line ends of Unix in the repository, whatever the
+# system it was written on.
+* text=auto
+
+# The test archives and the pieces of compressed data are read byte for byte.
+crates/boxit-codecs/fixtures/* binary
+*.ico binary
+*.icns binary
+*.png binary
+
+# Scripts of Windows are run by programs that expect its line ends.
+*.nsh text eol=crlf
+*.ps1 text eol=crlf

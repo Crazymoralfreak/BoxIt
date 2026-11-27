@@ -1,0 +1,62 @@
+name: Benchmarks
+
+# Speed on the benchmark corpus, the three sets described in
+# crates/boxit-codecs/src/corpus.rs: the codecs alone (criterion), the whole
+# program through its command line, and BoxIt next to 7-Zip on the same
+# files. Runs once a week and by hand; it is not part of the checks of a pull
+# request, because the timing of a shared runner is too noisy to block work
+# on. The numbers are kept as an artifact of the run.
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  bench:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Benchmarks of the codecs
+        run: cargo bench -p boxit-codecs --locked
+
+      - name: Build the command line
+        run: cargo build --release -p boxit-cli --locked
+
+      # Through the engine and the disk, the way the program works: every
+      # format BoxIt creates, on the full sets.
+      - name: Benchmark of the command line
+        run: target/release/boxit-cli.exe bench --full
+
+      # The runner has 7-Zip. The table goes to the summary of the run.
+      - name: BoxIt and 7-Zip on the same files
+        run: pwsh scripts/bench-vs-7zip.ps1 -Cli target/release/boxit-cli.exe -Report target/vs-7zip.json
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: benchmarks
+          path: |
+            target/criterion
+            target/vs-7zip.json
+          if-no-files-found: ignore

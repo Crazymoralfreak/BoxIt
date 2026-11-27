@@ -1,0 +1,92 @@
+# Rules of `cargo deny check` for the dependencies of BoxIt, run by
+# .github/workflows/ci.yml.
+
+[graph]
+# The window is released for 64-bit Windows first; the archive crates and the
+# command line are built and tested on Linux and macOS as well.
+targets = [
+  "x86_64-pc-windows-msvc",
+  "x86_64-unknown-linux-gnu",
+  "aarch64-apple-darwin",
+]
+
+[advisories]
+version = 2
+yanked = "deny"
+# An unmaintained crate deep in the tree is reported by its users; here only
+# the crates BoxIt depends on directly count.
+unmaintained = "workspace"
+# Archive times still go through chrono. The crate was marked unmaintained
+# with no replacement that keeps the same clock API, so this release keeps it.
+ignore = ["RUSTSEC-2026-0543"]
+
+[licenses]
+version = 2
+# Everything else is refused until it is looked at and added here.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "BSL-1.0",
+  "CC0-1.0",
+  "Unicode-3.0",
+  # The permissive licence of bzip2 itself, kept by its port to Rust.
+  "bzip2-1.0.6",
+  # Apache-2.0 with an exception that only widens what is allowed.
+  "Apache-2.0 WITH LLVM-exception",
+  # Weak copyleft per file: changes to those files are published, the rest of
+  # the program keeps its own licence.
+  "MPL-2.0",
+]
+# The licence of UnRAR is not an open one: its code may be used to read RAR
+# archives and never to make them or to rebuild the compression of RAR. BoxIt
+# only reads RAR, so the licence is let in for the one crate that carries
+# that code, and for nothing else. The terms are quoted in
+# THIRD-PARTY-NOTICES.txt, which goes out with every copy of the program.
+exceptions = [{ crate = "unrar_sys", allow = ["LicenseRef-UnRAR"] }]
+
+# The crate declares the licence of its own Rust code only; the C++ code it
+# builds comes under the licence of UnRAR. The hash is of that licence as the
+# crate ships it: a new version of the crate with other terms is looked at
+# again.
+[[licenses.clarify]]
+crate = "unrar_sys"
+expression = "(MIT OR Apache-2.0) AND LicenseRef-UnRAR"
+license-files = [{ path = "vendor/unrar/license.txt", hash = 0x46456911 }]
+
+[bans]
+multiple-versions = "allow"
+# The crates of the workspace refer to each other by path, without a version.
+wildcards = "allow"
+# BoxIt talks to the network in one place: the window asks GitHub for a newer
+# version when the user presses "Check for updates". The updater is used by
+# the window crate alone, the HTTP client and the TLS stack by the updater and
+# the crates it is made of, and nothing else may bring a client of its own: so
+# nothing can be sent anywhere without this file changing. The stricter rule
+# for the archive crates (no network crate at any depth) is checked by
+# scripts/check-no-network.mjs.
+deny = [
+  { crate = "tauri-plugin-updater", wrappers = ["boxit"] },
+  { crate = "reqwest", wrappers = ["tauri", "tauri-plugin-updater"] },
+  { crate = "rustls", wrappers = [
+    "tauri-plugin-updater",
+    "reqwest",
+    "hyper-rustls",
+    "tokio-rustls",
+    "rustls-platform-verifier",
+  ] },
+  { crate = "ureq" },
+  { crate = "minreq" },
+  { crate = "attohttpc" },
+  { crate = "isahc" },
+  { crate = "curl" },
+  { crate = "native-tls" },
+  { crate = "openssl" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

@@ -1,0 +1,103 @@
+name: Release
+
+# A tag v* builds BoxIt for Windows x64, Windows ARM64, macOS (Intel and
+# Apple Silicon) and Linux (x64 and ARM64). Windows x64 is built here, with
+# a profile from the benchmark corpus, the NSIS installer and the portable
+# zip. The other machines are built by the desktop workflow: dmg, deb,
+# AppImage and an ARM64 installer.
+#
+# The portable copy is packed as a zip and is not an updater target: it has
+# no installer to replace itself with.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  desktop:
+    uses: ./.github/workflows/platforms.yml
+    secrets: inherit
+
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component llvm-tools-preview
+          rustup default stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the interface
+        run: npm run build
+
+      # Train on the command line. The small corpus is the one the bench
+      # command uses unless --full is passed; it exercises every codec the
+      # release build then optimizes.
+      - name: Collect a profile
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "pgo"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $env:RUSTFLAGS = "-Cprofile-generate=$dir"
+          cargo build --release -p boxit-cli --locked
+          & target/release/boxit-cli.exe bench --runs 1
+          $profdata = Get-ChildItem (Join-Path (rustc --print sysroot) "lib") -Recurse -Filter llvm-profdata.exe |
+            Select-Object -First 1 -ExpandProperty FullName
+          $merged = Join-Path $env:RUNNER_TEMP "merged.profdata"
+          & $profdata merge -o $merged $dir
+          "RUSTFLAGS=-Cprofile-use=$merged" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8NoBOM
+
+      - name: Build the self-extractor with the profile
+        run: cargo build --release -p boxit-sfx --locked
+
+      - name: Build the Windows 11 menu
+        run: |
+          $env:RUSTFLAGS = $null
+          cargo build --release -p boxit-shell --locked
+
+      - name: Build the installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri -- build --config src-tauri/tauri.release.conf.json
+
+      - name: Build the command line with the profile
+        run: cargo build --release -p boxit-cli --locked
+
+      - name: Pack the portable copy
+        run: |
+          node scripts/make-portable.mjs --no-build
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          Compress-Archive -Path portable/BoxIt -DestinationPath "BoxIt_${version}_x64-portable.zip"
+
+      - name: Gather the files of the release
+        run: |
+          New-Item -ItemType Directory -Force -Path release-out | Out-Null
+          Get-ChildItem -Recurse -File -Path target, src-tauri/target -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\bundle\\' -and $_.Extension -in '.exe', '.sig', '.json' } |
+            Copy-Item -Destination release-out
+          Copy-Item BoxIt_*_x64-portable.zip release-out
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-out/*

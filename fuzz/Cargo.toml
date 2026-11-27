@@ -1,0 +1,116 @@
+# Fuzz targets of the archive readers, for `cargo fuzz` (libFuzzer):
+#
+#   cargo +nightly fuzz run zip
+#
+# The targets are run by .github/workflows/fuzz.yml. This crate is not part
+# of the workspace: it needs a nightly compiler and is never shipped.
+[package]
+name = "boxit-fuzz"
+description = "Fuzz targets of the BoxIt archive readers"
+version = "0.0.0"
+authors = ["Mityy"]
+license = "MIT"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+boxit-codecs = { path = "../crates/boxit-codecs" }
+boxit-core = { path = "../crates/boxit-core" }
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "open"
+path = "fuzz_targets/open.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "zip"
+path = "fuzz_targets/zip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sevenz"
+path = "fuzz_targets/sevenz.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tar"
+path = "fuzz_targets/tar.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "streams"
+path = "fuzz_targets/streams.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ar"
+path = "fuzz_targets/ar.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cpio"
+path = "fuzz_targets/cpio.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lha"
+path = "fuzz_targets/lha.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cab"
+path = "fuzz_targets/cab.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "iso"
+path = "fuzz_targets/iso.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "wim"
+path = "fuzz_targets/wim.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rar"
+path = "fuzz_targets/rar.rs"
+test = false
+doc = false
+bench = false
+
+# The fuzzer looks for crashes in code as it is shipped, with the checks of
+# a debug build on top.
+[profile.release]
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+[workspace]
+members = ["."]

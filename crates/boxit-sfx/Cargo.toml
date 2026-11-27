@@ -1,0 +1,39 @@
+[package]
+name = "boxit-sfx"
+description = "BoxIt self-extractor: a Windows program with an archive glued after it"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[lib]
+name = "boxit_sfx"
+path = "src/lib.rs"
+
+[[bin]]
+name = "boxit-sfx"
+path = "src/main.rs"
+
+[dependencies]
+boxit-codecs = { workspace = true, default-features = false }
+boxit-core.workspace = true
+boxit-engine = { workspace = true, default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Security_Credentials",
+  "Win32_System_Com",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
